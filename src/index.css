@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --color-brand-50: #f0f9ff;
+  --color-brand-100: #e0f2fe;
+  --color-brand-500: #0ea5e9;
+  --color-brand-600: #0284c7;
+  --color-brand-700: #0369a1;
+}
+
+:root {
+  direction: rtl;
+}
+
+body {
+  background-color: var(--color-gray-50);
+  color: var(--color-gray-900);
+  font-family: var(--font-sans);
+}
+
+
+/* Print Styles */
+@media print {
+  /* Hide everything except main content */
+  body > div > div > aside,
+  body > div > div > div > header,
+  aside,
+  header,
+  nav,
+  .sidebar,
+  [class*="sidebar"],
+  [class*="Sidebar"],
+  .print\\:hidden {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  
+  /* Make main content full width and remove margins */
+  body > div,
+  body > div > div,
+  main,
+  [role="main"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Remove all shadows and borders */
+  * {
+    box-shadow: none !important;
+  }
+  
+  /* Ensure white background */
+  body,
+  html {
+    background: white !important;
+  }
+  
+  /* Page breaks */
+  .page-break {
+    page-break-after: always;
+  }
+  
+  /* Hide scrollbars */
+  ::-webkit-scrollbar {
+    display: none !important;
+  }
+}

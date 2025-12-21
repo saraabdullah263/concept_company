@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toggle Switch Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { direction: rtl; }
+    </style>
+</head>
+<body class="p-8 bg-gray-50">
+    <h1 class="text-2xl font-bold mb-8">اختبار Toggle Switch</h1>
+    
+    <!-- Test 1: Disabled State -->
+    <div class="bg-white p-6 rounded-lg shadow mb-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="font-medium text-gray-900">الحالة: معطل (Disabled)</p>
+                <p class="text-sm text-gray-500">الدائرة يجب أن تكون على اليسار</p>
+            </div>
+            <button
+                type="button"
+                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out bg-gray-200"
+                dir="ltr"
+            >
+                <span class="inline-block h-5 w-5 rounded-full bg-white shadow-lg transition-all duration-200 ease-in-out ms-[2px]"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Test 2: Enabled State -->
+    <div class="bg-white p-6 rounded-lg shadow mb-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="font-medium text-gray-900">الحالة: مفعل (Enabled)</p>
+                <p class="text-sm text-gray-500">الدائرة يجب أن تكون على اليمين</p>
+            </div>
+            <button
+                type="button"
+                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out bg-blue-600"
+                dir="ltr"
+            >
+                <span class="inline-block h-5 w-5 rounded-full bg-white shadow-lg transition-all duration-200 ease-in-out ms-[22px]"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Test 3: Interactive -->
+    <div class="bg-white p-6 rounded-lg shadow">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="font-medium text-gray-900">اختبار تفاعلي</p>
+                <p class="text-sm text-gray-500">اضغط للتبديل</p>
+            </div>
+            <button
+                type="button"
+                id="toggleBtn"
+                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out bg-gray-200"
+                dir="ltr"
+            >
+                <span id="toggleCircle" class="inline-block h-5 w-5 rounded-full bg-white shadow-lg transition-all duration-200 ease-in-out ms-[2px]"></span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let isChecked = false;
+        const btn = document.getElementById('toggleBtn');
+        const circle = document.getElementById('toggleCircle');
+        
+        btn.addEventListener('click', () => {
+            isChecked = !isChecked;
+            if (isChecked) {
+                btn.classList.remove('bg-gray-200');
+                btn.classList.add('bg-blue-600');
+                circle.classList.remove('ms-[2px]');
+                circle.classList.add('ms-[22px]');
+            } else {
+                btn.classList.remove('bg-blue-600');
+                btn.classList.add('bg-gray-200');
+                circle.classList.remove('ms-[22px]');
+                circle.classList.add('ms-[2px]');
+            }
+        });
+    </script>
+</body>
+</html>
