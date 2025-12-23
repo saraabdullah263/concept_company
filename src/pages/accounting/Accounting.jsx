@@ -22,23 +22,33 @@ const Accounting = () => {
         try {
             setLoading(true);
 
-            // Fetch Invoices
+            // Fetch Invoices (all for calculations)
+            const { data: allInvoicesData } = await supabase
+                .from('invoices')
+                .select('id, total_amount, status');
+
+            // Fetch recent invoices for display
             const { data: invoices } = await supabase
                 .from('invoices')
                 .select('*, hospitals(name)')
                 .order('created_at', { ascending: false })
                 .limit(5);
 
-            // Fetch Expenses
+            // Fetch all Expenses for calculations
+            const { data: allExpensesData } = await supabase
+                .from('expenses')
+                .select('id, amount');
+
+            // Fetch recent expenses for display
             const { data: expenses } = await supabase
                 .from('expenses')
                 .select('*')
-                .order('date', { ascending: false })
+                .order('expense_date', { ascending: false })
                 .limit(5);
 
-            // Calculate Stats
-            const allInvoices = invoices || [];
-            const allExpenses = expenses || [];
+            // Calculate Stats from ALL data
+            const allInvoices = allInvoicesData || [];
+            const allExpenses = allExpensesData || [];
 
             const totalRevenue = allInvoices
                 .filter(inv => inv.status === 'paid')
@@ -55,8 +65,8 @@ const Accounting = () => {
                 pendingRevenue,
                 totalExpenses,
                 netProfit: totalRevenue - totalExpenses,
-                recentInvoices: allInvoices,
-                recentExpenses: allExpenses
+                recentInvoices: invoices || [],
+                recentExpenses: expenses || []
             });
         } catch (error) {
             console.error('Error fetching accounting data:', error);
@@ -190,7 +200,7 @@ const Accounting = () => {
                                     </div>
                                     <div className="flex items-center justify-between text-xs text-gray-500">
                                         <span className="px-2 py-0.5 rounded-full bg-gray-100">{exp.category || 'عام'}</span>
-                                        <span>{exp.date}</span>
+                                        <span>{exp.expense_date}</span>
                                     </div>
                                 </div>
                             ))

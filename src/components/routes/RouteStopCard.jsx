@@ -2,29 +2,27 @@ import { useState } from 'react';
 import { supabase } from '../../services/supabase';
 import { 
     MapPin, Clock, Weight, Camera, PenTool, 
-    CheckCircle2, Loader2, AlertCircle, ChevronDown, ChevronUp 
+    CheckCircle2, Loader2, AlertCircle, ChevronDown, ChevronUp, FileText, Printer 
 } from 'lucide-react';
-import WeightEntryModal from './WeightEntryModal';
+import CollectionFormModal from './CollectionFormModal';
 import PhotoUploadModal from './PhotoUploadModal';
-import SignatureModal from './SignatureModal';
 
-const RouteStopCard = ({ stop, stopNumber, routeId, isRouteInProgress, currentLocation, onUpdate }) => {
+const RouteStopCard = ({ stop, stopNumber, routeId, route, isRouteInProgress, currentLocation, onUpdate }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [isArriving, setIsArriving] = useState(false);
     const [isDeparting, setIsDeparting] = useState(false);
     
     // Modals
-    const [showWeightModal, setShowWeightModal] = useState(false);
+    const [showCollectionForm, setShowCollectionForm] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
-    const [showSignatureModal, setShowSignatureModal] = useState(false);
 
     const isPending = stop.status === 'pending';
     const isArrived = stop.status === 'arrived';
     const isCollected = stop.status === 'collected';
 
     const canArrive = isPending && isRouteInProgress;
-    const canCollect = isArrived && !stop.weight_collected;
-    const canDepart = isArrived && stop.weight_collected && stop.hospital_signature;
+    const hasCollectionData = stop.weight_collected && stop.collection_details;
+    const canDepart = isArrived && hasCollectionData;
 
     const handleArrive = async () => {
         if (!currentLocation) {
@@ -121,6 +119,30 @@ const RouteStopCard = ({ stop, stopNumber, routeId, isRouteInProgress, currentLo
         }
     };
 
+    const handlePrintReceipt = () => {
+        if (!stop.collection_details) {
+            alert('لا توجد بيانات للطباعة');
+            return;
+        }
+
+        // Prepare receipt data
+        const receiptData = {
+            route,
+            stop,
+            collectionData: stop.collection_details,
+            receiptNumber: `EC-${new Date().getFullYear()}-${String(stop.id).padStart(6, '0')}`
+        };
+
+        // Store in sessionStorage
+        sessionStorage.setItem('printReceipt', JSON.stringify(receiptData));
+
+        // Open print window
+        const printWindow = window.open('/concept_company/print-receipt', '_blank');
+        if (!printWindow) {
+            alert('الرجاء السماح بفتح النوافذ المنبثقة للطباعة');
+        }
+    };
+
     return (
         <div className={`bg-white rounded-xl shadow-sm border-2 transition-all ${
             isCollected ? 'border-green-200 bg-green-50/30' :
@@ -201,64 +223,52 @@ const RouteStopCard = ({ stop, stopNumber, routeId, isRouteInProgress, currentLo
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="grid grid-cols-3 gap-2">
-                        <button
-                            onClick={() => setShowWeightModal(true)}
-                            disabled={!!stop.weight_collected}
-                            className={`flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-colors ${
-                                stop.weight_collected
-                                    ? 'border-green-200 bg-green-50 text-green-700'
-                                    : 'border-gray-200 hover:border-brand-500 hover:bg-brand-50'
-                            }`}
-                        >
-                            <Weight className="w-6 h-6" />
-                            <span className="text-xs font-medium">
-                                {stop.weight_collected ? 'تم' : 'الوزن'}
-                            </span>
-                        </button>
+                    {!hasCollectionData ? (
+                        <div className="space-y-3">
+                            <button
+                                onClick={() => setShowCollectionForm(true)}
+                                className="w-full flex items-center justify-center gap-2 p-4 rounded-lg border-2 border-brand-500 bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors font-medium"
+                            >
+                                <FileText className="w-6 h-6" />
+                                <span>تسجيل بيانات الاستلام</span>
+                            </button>
 
-                        <button
-                            onClick={() => setShowPhotoModal(true)}
-                            disabled={!!stop.photo_proof}
-                            className={`flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-colors ${
-                                stop.photo_proof
-                                    ? 'border-green-200 bg-green-50 text-green-700'
-                                    : 'border-gray-200 hover:border-brand-500 hover:bg-brand-50'
-                            }`}
-                        >
-                            <Camera className="w-6 h-6" />
-                            <span className="text-xs font-medium">
-                                {stop.photo_proof ? 'تم' : 'صورة'}
-                            </span>
-                        </button>
-
-                        <button
-                            onClick={() => setShowSignatureModal(true)}
-                            disabled={!!stop.hospital_signature}
-                            className={`flex flex-col items-center gap-2 p-3 rounded-lg border-2 transition-colors ${
-                                stop.hospital_signature
-                                    ? 'border-green-200 bg-green-50 text-green-700'
-                                    : 'border-gray-200 hover:border-brand-500 hover:bg-brand-50'
-                            }`}
-                        >
-                            <PenTool className="w-6 h-6" />
-                            <span className="text-xs font-medium">
-                                {stop.hospital_signature ? 'تم' : 'توقيع'}
-                            </span>
-                        </button>
-                    </div>
-
-                    {/* Requirements Check */}
-                    {!canDepart && (
-                        <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-sm">
-                            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-medium">يجب إكمال:</p>
-                                <ul className="list-disc list-inside mt-1 space-y-1">
-                                    {!stop.weight_collected && <li>إدخال الوزن</li>}
-                                    {!stop.hospital_signature && <li>التوقيع الإلكتروني</li>}
-                                </ul>
+                            <button
+                                onClick={() => setShowPhotoModal(true)}
+                                disabled={!!stop.photo_proof}
+                                className={`w-full flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-colors ${
+                                    stop.photo_proof
+                                        ? 'border-green-200 bg-green-50 text-green-700'
+                                        : 'border-gray-200 hover:border-brand-500 hover:bg-brand-50'
+                                }`}
+                            >
+                                <Camera className="w-5 h-5" />
+                                <span className="text-sm font-medium">
+                                    {stop.photo_proof ? 'تم التصوير' : 'التقاط صورة (اختياري)'}
+                                </span>
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-3">
+                            <div className="flex items-center gap-2 text-green-700 font-medium">
+                                <CheckCircle2 className="w-5 h-5" />
+                                <span>تم تسجيل بيانات الاستلام</span>
                             </div>
+                            <div className="text-sm text-green-600 space-y-1">
+                                <p>• الوزن: {stop.weight_collected} كجم</p>
+                                <p>• التوقيعات: مكتملة</p>
+                            </div>
+                            
+                            {/* Print Receipt Button */}
+                            {stop.collection_details && (
+                                <button
+                                    onClick={() => handlePrintReceipt()}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white border-2 border-green-600 text-green-700 rounded-lg hover:bg-green-50 transition-colors font-medium"
+                                >
+                                    <Printer className="w-5 h-5" />
+                                    <span>طباعة الإيصال</span>
+                                </button>
+                            )}
                         </div>
                     )}
 
@@ -267,7 +277,7 @@ const RouteStopCard = ({ stop, stopNumber, routeId, isRouteInProgress, currentLo
                         <button
                             onClick={handleDepart}
                             disabled={isDeparting || !currentLocation}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 font-medium"
                         >
                             {isDeparting ? (
                                 <>
@@ -277,20 +287,28 @@ const RouteStopCard = ({ stop, stopNumber, routeId, isRouteInProgress, currentLo
                             ) : (
                                 <>
                                     <CheckCircle2 className="w-5 h-5" />
-                                    <span>مغادرة</span>
+                                    <span>مغادرة المحطة</span>
                                 </>
                             )}
                         </button>
+                    )}
+
+                    {!hasCollectionData && (
+                        <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-sm">
+                            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                            <span>يجب تسجيل بيانات الاستلام والتوقيعات قبل المغادرة</span>
+                        </div>
                     )}
                 </div>
             )}
 
             {/* Modals */}
-            <WeightEntryModal
-                isOpen={showWeightModal}
-                onClose={() => setShowWeightModal(false)}
-                stopId={stop.id}
+            <CollectionFormModal
+                isOpen={showCollectionForm}
+                onClose={() => setShowCollectionForm(false)}
+                stop={stop}
                 routeId={routeId}
+                route={route}
                 currentLocation={currentLocation}
                 onSuccess={onUpdate}
             />
@@ -300,16 +318,6 @@ const RouteStopCard = ({ stop, stopNumber, routeId, isRouteInProgress, currentLo
                 onClose={() => setShowPhotoModal(false)}
                 stopId={stop.id}
                 routeId={routeId}
-                currentLocation={currentLocation}
-                onSuccess={onUpdate}
-            />
-
-            <SignatureModal
-                isOpen={showSignatureModal}
-                onClose={() => setShowSignatureModal(false)}
-                stopId={stop.id}
-                routeId={routeId}
-                hospitalName={stop.hospitals?.name}
                 currentLocation={currentLocation}
                 onSuccess={onUpdate}
             />

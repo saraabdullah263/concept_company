@@ -1,9 +1,11 @@
 import { Printer } from 'lucide-react';
+import { getCachedLogoBase64 } from '../../utils/logoBase64';
 
 const PrintReceipts = ({ route, stops }) => {
-    const handlePrint = () => {
+    const handlePrint = async () => {
+        const logoBase64 = await getCachedLogoBase64();
         const printWindow = window.open('', '_blank');
-        const receiptsHTML = generateReceiptsHTML(route, stops);
+        const receiptsHTML = generateReceiptsHTML(route, stops, logoBase64);
         
         printWindow.document.write(receiptsHTML);
         printWindow.document.close();
@@ -11,11 +13,12 @@ const PrintReceipts = ({ route, stops }) => {
         
         setTimeout(() => {
             printWindow.print();
-        }, 250);
+        }, 300);
     };
 
-    const generateReceiptsHTML = (route, stops) => {
-        const companyName = 'شركة إدارة المخلفات الطبية';
+    const generateReceiptsHTML = (route, stops, logoSrc) => {
+        const logoUrl = logoSrc || `${window.location.origin}/logo.png`;
+        const companyName = 'Concept Eco Care';
         const routeDate = new Date(route.route_date).toLocaleDateString('ar-EG', {
             year: 'numeric',
             month: 'long',
@@ -27,8 +30,11 @@ const PrintReceipts = ({ route, stops }) => {
             <div class="receipt-page">
                 <div class="receipt">
                     <div class="receipt-header">
-                        <h1>${companyName}</h1>
-                        <h2>وصل استلام مخلفات طبية</h2>
+                        <img src="${logoUrl}" alt="Concept Eco Care" />
+                        <div class="receipt-header-text">
+                            <h1>${companyName}</h1>
+                            <h2>وصل استلام مخلفات طبية</h2>
+                        </div>
                     </div>
                     
                     <div class="receipt-body">
@@ -83,8 +89,11 @@ const PrintReceipts = ({ route, stops }) => {
             <div class="receipt-page">
                 <div class="receipt">
                     <div class="receipt-header">
-                        <h1>${companyName}</h1>
-                        <h2>وصل استلام مخلفات طبية</h2>
+                        <img src="${logoUrl}" alt="Concept Eco Care" />
+                        <div class="receipt-header-text">
+                            <h1>${companyName}</h1>
+                            <h2>وصل استلام مخلفات طبية</h2>
+                        </div>
                     </div>
                     
                     <div class="receipt-body">
@@ -169,10 +178,21 @@ const PrintReceipts = ({ route, stops }) => {
                     }
                     
                     .receipt-header {
-                        text-align: center;
+                        display: flex;
+                        align-items: center;
                         border-bottom: 2px solid #333;
                         padding-bottom: 3mm;
                         margin-bottom: 3mm;
+                    }
+                    
+                    .receipt-header img {
+                        height: 60px;
+                        margin-right: auto;
+                    }
+                    
+                    .receipt-header-text {
+                        flex: 1;
+                        text-align: center;
                     }
                     
                     .receipt-header h1 {

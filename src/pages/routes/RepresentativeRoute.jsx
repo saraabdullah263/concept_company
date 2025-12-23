@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../context/AuthContext';
 import RouteStopCard from '../../components/routes/RouteStopCard';
-import PrintReceipts from '../../components/routes/PrintReceipts';
-import { Loader2, MapPin, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import IncineratorDeliveryModal from '../../components/routes/IncineratorDeliveryModal';
+import PrintCompleteReceipt from '../../components/routes/PrintCompleteReceipt';
+import { Loader2, MapPin, Clock, AlertCircle, CheckCircle2, Factory } from 'lucide-react';
 
 const RepresentativeRoute = () => {
     const { routeId } = useParams();
@@ -16,9 +17,12 @@ const RepresentativeRoute = () => {
     const [loading, setLoading] = useState(true);
     const [currentLocation, setCurrentLocation] = useState(null);
     const [isStarting, setIsStarting] = useState(false);
+    const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+    const [deliveries, setDeliveries] = useState([]);
 
     useEffect(() => {
         fetchRouteDetails();
+        fetchDeliveries();
         getCurrentLocation();
     }, [routeId]);
 
@@ -106,6 +110,22 @@ const RepresentativeRoute = () => {
             alert('حدث خطأ في تحميل بيانات الرحلة');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchDeliveries = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('incinerator_deliveries')
+                .select('*, incinerators(name)')
+                .eq('route_id', routeId)
+                .order('delivery_order', { ascending: true });
+
+            if (!error && data) {
+                setDeliveries(data);
+            }
+        } catch (error) {
+            console.error('Error fetching deliveries:', error);
         }
     };
 
@@ -246,13 +266,6 @@ const RepresentativeRoute = () => {
 
                 {canStart && (
                     <>
-                        {/* Print Receipts Button - Before starting */}
-                        {stops.length > 0 && (
-                            <div className="mt-4">
-                                <PrintReceipts route={route} stops={stops} />
-                            </div>
-                        )}
-                        
                         <button
                             onClick={handleStartRoute}
                             disabled={isStarting || !currentLocation}
@@ -310,6 +323,7 @@ const RepresentativeRoute = () => {
                         stop={stop}
                         stopNumber={index + 1}
                         routeId={routeId}
+                        route={route}
                         isRouteInProgress={isInProgress}
                         currentLocation={currentLocation}
                         onUpdate={fetchRouteDetails}
@@ -317,13 +331,94 @@ const RepresentativeRoute = () => {
                 ))}
             </div>
 
-            {/* Incinerator (Final Stop) */}
-            {isInProgress && stops.every(s => s.status === 'collected') && (
-                <IncineratorStop
-                    route={route}
-                    currentLocation={currentLocation}
-                    onComplete={handleCompleteRoute}
-                />
+            {/* Incinerator Delivery - After all stops collected */}
+            {isInProgress && stops.every(s => s.status === 'collected') && deliveries.length === 0 && (
+                <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-6 text-center">
+                    <Factory className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
+                    <h3 className="font-bold text-gray-900 mb-2">تم التجميع من جميع العملاء</h3>
+                    <p className="text-gray-600 mb-1">
+                        إجمالي المجمع: {stops.reduce((sum, s) => sum + (s.collection_details?.bags_count || 0), 0)} كيس
+                    </p>
+                    <p className="text-gray-600 mb-4">
+                        الوزن الكلي: {route.total_weight_collected || 0} كجم
+                    </p>
+                    <button
+                        onClick={() => setShowDeliveryModal(true)}
+                        className="bg-brand-600 text-white px-6 py-3 rounded-lg hover:bg-brand-700 font-medium inline-flex items-center gap-2"
+                    >
+                        <Factory className="w-5 h-5" />
+                        تسليم للمحارق
+                    </button>
+                </div>
+            )}
+
+            {/* Delivery Summary - After delivery completed */}
+            {deliveries.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <Factory className="w-5 h-5 text-green-600" />
+                        ملخص التسليم للمحارق
+                    </h3>
+                    
+                    <div className="space-y-3 mb-4">
+                        {deliveries.map((delivery, index) => (
+                            <div key={delivery.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                                <div>
+                                    <div className="font-medium text-gray-900">
+                                        {index + 1}. {delivery.incinerators?.name}
+                                    </div>
+                                    <div className="text-sm text-gray-600">
+                                        {new Date(delivery.delivery_time).toLocaleString('ar-EG')}
+                                    </div>
+                                </div>
+                                <div className="text-left">
+                                    <div className="font-bold text-green-600">
+                                        {delivery.bags_count} كيس
+                                    </div>
+                                    <div className="text-sm text-green-600">
+                                        {delivery.weight_delivered} كجم
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3 mb-4 pt-4 border-t">
+                        <div className="text-center p-3 bg-blue-50 rounded-lg">
+                            <div className="text-sm text-gray-600 mb-1">المجمع</div>
+                            <div className="font-bold text-blue-600">
+                                {stops.reduce((sum, s) => sum + (s.collection_details?.bags_count || 0), 0)} كيس
+                            </div>
+                            <div className="text-sm text-blue-600">
+                                {route.total_weight_collected || 0} كجم
+                            </div>
+                        </div>
+                        <div className="text-center p-3 bg-green-50 rounded-lg">
+                            <div className="text-sm text-gray-600 mb-1">المسلم</div>
+                            <div className="font-bold text-green-600">
+                                {deliveries.reduce((sum, d) => sum + parseInt(d.bags_count || 0), 0)} كيس
+                            </div>
+                            <div className="text-sm text-green-600">
+                                {deliveries.reduce((sum, d) => sum + parseFloat(d.weight_delivered || 0), 0).toFixed(2)} كجم
+                            </div>
+                        </div>
+                        <div className="text-center p-3 bg-orange-50 rounded-lg">
+                            <div className="text-sm text-gray-600 mb-1">المتبقي</div>
+                            <div className="font-bold text-orange-600">
+                                {route.remaining_bags || 0} كيس
+                            </div>
+                            <div className="text-sm text-orange-600">
+                                {route.remaining_weight || 0} كجم
+                            </div>
+                        </div>
+                    </div>
+
+                    <PrintCompleteReceipt 
+                        route={route} 
+                        stops={stops} 
+                        deliveries={deliveries} 
+                    />
+                </div>
             )}
 
             {/* Completed Message */}
@@ -338,74 +433,20 @@ const RepresentativeRoute = () => {
                     </p>
                 </div>
             )}
-        </div>
-    );
-};
 
-// Incinerator Final Stop Component
-const IncineratorStop = ({ route, currentLocation, onComplete }) => {
-    const [finalWeight, setFinalWeight] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        
-        if (!finalWeight || parseFloat(finalWeight) <= 0) {
-            alert('الرجاء إدخال الوزن النهائي');
-            return;
-        }
-
-        setIsSubmitting(true);
-        await onComplete(parseFloat(finalWeight));
-        setIsSubmitting(false);
-    };
-
-    return (
-        <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl shadow-sm border border-purple-200 p-6">
-            <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold">
-                    M
-                </div>
-                <div>
-                    <h3 className="font-semibold text-gray-900">{route.incinerators?.name}</h3>
-                    <p className="text-sm text-gray-600">{route.incinerators?.location}</p>
-                </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        الوزن النهائي في المحرقة (كجم)
-                    </label>
-                    <input
-                        type="number"
-                        step="0.01"
-                        value={finalWeight}
-                        onChange={(e) => setFinalWeight(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
-                        placeholder="أدخل الوزن النهائي"
-                        required
-                    />
-                </div>
-
-                <button
-                    type="submit"
-                    disabled={isSubmitting || !currentLocation}
-                    className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
-                >
-                    {isSubmitting ? (
-                        <>
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            <span>جاري الإنهاء...</span>
-                        </>
-                    ) : (
-                        <>
-                            <CheckCircle2 className="w-5 h-5" />
-                            <span>إنهاء الرحلة</span>
-                        </>
-                    )}
-                </button>
-            </form>
+            {/* Incinerator Delivery Modal */}
+            {route && (
+                <IncineratorDeliveryModal
+                    isOpen={showDeliveryModal}
+                    onClose={() => setShowDeliveryModal(false)}
+                    route={{ ...route, route_stops: stops }}
+                    onSuccess={() => {
+                        setShowDeliveryModal(false);
+                        fetchRouteDetails();
+                        fetchDeliveries();
+                    }}
+                />
+            )}
         </div>
     );
 };

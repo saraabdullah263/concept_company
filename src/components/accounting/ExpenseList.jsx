@@ -38,10 +38,10 @@ const ExpenseList = ({ expenses, onEdit, onDelete }) => {
                                 </span>
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-500 font-mono">
-                                {format(new Date(expense.date), 'yyyy-MM-dd', { locale: ar })}
+                                {expense.expense_date ? format(new Date(expense.expense_date), 'yyyy-MM-dd', { locale: ar }) : '-'}
                             </td>
                             <td className="px-6 py-4 text-left">
-                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex items-center justify-end gap-2">
                                     <button
                                         onClick={() => onEdit(expense)}
                                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"

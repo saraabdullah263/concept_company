@@ -75,27 +75,28 @@ const Dashboard = () => {
             setLoading(false);
 
             const [routes, vehicles, contracts, invoices, expenses, hospitals] = await Promise.all([
-                supabase.from('routes').select('*', { count: 'exact' }),
-                supabase.from('vehicles').select('*', { count: 'exact' }).eq('is_active', true),
-                supabase.from('contracts').select('*', { count: 'exact' }).eq('status', 'active'),
-                supabase.from('invoices').select('total_amount').eq('status', 'pending'),
-                supabase.from('expenses').select('amount'),
-                supabase.from('hospitals').select('*', { count: 'exact' }).eq('is_active', true)
+                supabase.from('routes').select('id, status'),
+                supabase.from('vehicles').select('id').eq('is_active', true),
+                supabase.from('contracts').select('id').eq('status', 'active'),
+                supabase.from('invoices').select('id, total_amount, status'),
+                supabase.from('expenses').select('id, amount'),
+                supabase.from('hospitals').select('id').eq('is_active', true)
             ]);
 
             const completedRoutes = routes.data?.filter(r => r.status === 'completed') || [];
-            const totalRevenue = invoices.data?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
+            const pendingInvoices = invoices.data?.filter(inv => inv.status === 'pending') || [];
+            const totalRevenue = pendingInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
             const totalExpenses = expenses.data?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
 
             setStats({
-                totalRoutes: routes.count || 0,
+                totalRoutes: routes.data?.length || 0,
                 completedRoutes: completedRoutes.length,
-                totalVehicles: vehicles.count || 0,
-                activeContracts: contracts.count || 0,
-                pendingInvoices: invoices.count || 0,
+                totalVehicles: vehicles.data?.length || 0,
+                activeContracts: contracts.data?.length || 0,
+                pendingInvoices: pendingInvoices.length,
                 totalRevenue,
                 totalExpenses,
-                activeHospitals: hospitals.count || 0
+                activeHospitals: hospitals.data?.length || 0
             });
         } catch (error) {
             console.error('Error:', error);
@@ -276,12 +277,12 @@ const Dashboard = () => {
                     <div className="flex items-center gap-3 mb-4">
                         <Users className="w-8 h-8 text-blue-600" />
                         <div>
-                            <p className="text-sm text-blue-700 font-medium">المستشفيات النشطة</p>
+                            <p className="text-sm text-blue-700 font-medium">العملاء النشطين</p>
                             <p className="text-2xl font-bold text-blue-900">{stats.activeHospitals}</p>
                         </div>
                     </div>
                     <Link to="/hospitals" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-                        <span>إدارة المستشفيات</span>
+                        <span>إدارة العملاء</span>
                     </Link>
                 </div>
             </div>

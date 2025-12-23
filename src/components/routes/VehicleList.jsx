@@ -25,10 +25,24 @@ const VehicleList = ({ vehicles, onEdit, onDelete }) => {
                             <span className="text-gray-500">الحمولة القصوى:</span>
                             <span className="font-medium">{vehicle.capacity_kg} كجم</span>
                         </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">آخر صيانة:</span>
-                            <span className="font-medium">-</span>
-                        </div>
+                        {vehicle.representatives?.users?.full_name && (
+                            <div className="flex justify-between text-sm">
+                                <span className="text-gray-500">المالك:</span>
+                                <span className="font-medium">{vehicle.representatives.users.full_name}</span>
+                            </div>
+                        )}
+                        {vehicle.license_renewal_date && (
+                            <div className="flex justify-between text-sm">
+                                <span className="text-gray-500">تجديد الرخصة:</span>
+                                <span className={`font-medium ${
+                                    new Date(vehicle.license_renewal_date) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                                        ? 'text-red-600'
+                                        : 'text-gray-900'
+                                }`}>
+                                    {new Date(vehicle.license_renewal_date).toLocaleDateString('ar-EG')}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex gap-2 pt-4 border-t border-gray-50">

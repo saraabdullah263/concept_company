@@ -1,7 +1,61 @@
 import { Bell, Menu, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { notificationService } from '../../services/notificationService';
+
+// Audio Context للصوت
+let audioContext = null;
+let soundEnabled = false;
+
+// تفعيل الصوت (يجب استدعاؤها بعد تفاعل المستخدم)
+const enableSound = () => {
+    if (!soundEnabled) {
+        try {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            soundEnabled = true;
+            console.log('Sound enabled!');
+        } catch (e) {
+            console.log('Could not enable sound:', e);
+        }
+    }
+};
+
+// صوت الإشعار - نغمة واضحة ومسموعة
+const playNotificationSound = () => {
+    if (!soundEnabled || !audioContext) {
+        console.log('Sound not enabled yet');
+        return;
+    }
+    
+    try {
+        // نغمة 1
+        const osc1 = audioContext.createOscillator();
+        const gain1 = audioContext.createGain();
+        osc1.connect(gain1);
+        gain1.connect(audioContext.destination);
+        osc1.frequency.value = 880; // A5
+        osc1.type = 'sine';
+        gain1.gain.value = 0.5;
+        osc1.start(audioContext.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+        osc1.stop(audioContext.currentTime + 0.15);
+        
+        // نغمة 2 (أعلى)
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioContext.destination);
+        osc2.frequency.value = 1320; // E6
+        osc2.type = 'sine';
+        gain2.gain.value = 0.5;
+        osc2.start(audioContext.currentTime + 0.15);
+        gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        osc2.stop(audioContext.currentTime + 0.3);
+        
+    } catch (e) {
+        console.log('Could not play notification sound:', e);
+    }
+};
 
 const Header = ({ toggleSidebar }) => {
     const { user } = useAuth();
@@ -9,6 +63,27 @@ const Header = ({ toggleSidebar }) => {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const notifRef = useRef(null);
+
+    // تفعيل الصوت عند أول تفاعل مع الصفحة
+    useEffect(() => {
+        const handleFirstInteraction = () => {
+            enableSound();
+            // إزالة الـ listeners بعد التفعيل
+            document.removeEventListener('click', handleFirstInteraction);
+            document.removeEventListener('keydown', handleFirstInteraction);
+            document.removeEventListener('touchstart', handleFirstInteraction);
+        };
+        
+        document.addEventListener('click', handleFirstInteraction);
+        document.addEventListener('keydown', handleFirstInteraction);
+        document.addEventListener('touchstart', handleFirstInteraction);
+        
+        return () => {
+            document.removeEventListener('click', handleFirstInteraction);
+            document.removeEventListener('keydown', handleFirstInteraction);
+            document.removeEventListener('touchstart', handleFirstInteraction);
+        };
+    }, []);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -24,7 +99,10 @@ const Header = ({ toggleSidebar }) => {
     // جلب الإشعارات عند تحميل المكون
     useEffect(() => {
         if (user?.id) {
-            loadNotifications();
+            // فحص الرخص والعقود المنتهية أولاً
+            notificationService.checkExpiringItems().then(() => {
+                loadNotifications();
+            });
             
             // الاشتراك في الإشعارات الجديدة
             const subscription = notificationService.subscribeToNotifications(
@@ -33,11 +111,14 @@ const Header = ({ toggleSidebar }) => {
                     setNotifications(prev => [newNotification, ...prev]);
                     setUnreadCount(prev => prev + 1);
                     
+                    // تشغيل صوت الإشعار
+                    playNotificationSound();
+                    
                     // إظهار إشعار المتصفح
                     if (Notification.permission === 'granted') {
                         new Notification(newNotification.title, {
                             body: newNotification.message,
-                            icon: '/vite.svg'
+                            icon: '/logo.png'
                         });
                     }
                 }
@@ -86,6 +167,7 @@ const Header = ({ toggleSidebar }) => {
             setUnreadCount(0);
         } catch (error) {
             console.error('Error marking all as read:', error);
+            alert('حدث خطأ أثناء تعليم الإشعارات كمقروءة');
         }
     };
 
@@ -112,7 +194,6 @@ const Header = ({ toggleSidebar }) => {
                 >
                     <Menu className="w-6 h-6" />
                 </button>
-                <h2 className="text-lg font-semibold text-gray-900">نظام إدارة المخلفات الطبية</h2>
             </div>
 
             <div className="flex items-center gap-4">

@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../services/supabase';
 import VehicleList from '../../components/routes/VehicleList';
 import VehicleForm from '../../components/routes/VehicleForm';
-import { Plus, Search, Loader2 } from 'lucide-react';
+import { Plus, Search, Loader2, AlertTriangle } from 'lucide-react';
 
 const Vehicles = () => {
     const [vehicles, setVehicles] = useState([]);
@@ -18,7 +18,15 @@ const Vehicles = () => {
             setLoading(true);
             let query = supabase
                 .from('vehicles')
-                .select('*')
+                .select(`
+                    *,
+                    representatives!owner_representative_id (
+                        id,
+                        users!user_id (
+                            full_name
+                        )
+                    )
+                `)
                 .order('created_at', { ascending: false });
 
             if (searchTerm) {
@@ -39,6 +47,18 @@ const Vehicles = () => {
         fetchVehicles();
     }, [searchTerm]);
 
+    // Check for expiring licenses
+    const expiringLicenses = useMemo(() => {
+        const thirtyDaysFromNow = new Date();
+        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+        
+        return vehicles.filter(v => {
+            if (!v.license_renewal_date) return false;
+            const renewalDate = new Date(v.license_renewal_date);
+            return renewalDate <= thirtyDaysFromNow && renewalDate >= new Date();
+        });
+    }, [vehicles]);
+
     const handleEdit = (vehicle) => {
         setEditingVehicle(vehicle);
         setIsModalOpen(true);
@@ -47,23 +67,43 @@ const Vehicles = () => {
     const handleSubmit = async (data) => {
         setIsSubmitting(true);
         try {
+            // Clean data - convert empty string to null for owner_representative_id
+            const cleanData = {
+                ...data,
+                owner_representative_id: data.owner_representative_id || null,
+                license_renewal_date: data.license_renewal_date || null
+            };
+
             if (editingVehicle) {
                 const { error } = await supabase
                     .from('vehicles')
-                    .update(data)
+                    .update(cleanData)
                     .eq('id', editingVehicle.id);
                 if (error) throw error;
             } else {
                 const { error } = await supabase
                     .from('vehicles')
-                    .insert([data]);
+                    .insert([cleanData]);
                 if (error) throw error;
             }
             await fetchVehicles();
             setIsModalOpen(false);
         } catch (error) {
             console.error('Error saving vehicle:', error);
-            alert('حدث خطأ أثناء الحفظ');
+            
+            // Better error messages
+            let errorMessage = 'حدث خطأ أثناء الحفظ';
+            if (error.message) {
+                if (error.message.includes('owner_representative_id')) {
+                    errorMessage = '⚠️ يجب تشغيل SQL Migration أولاً!\n\nقم بتشغيل ملف update_vehicles_fields.sql في Supabase';
+                } else if (error.message.includes('duplicate')) {
+                    errorMessage = 'رقم اللوحة موجود مسبقاً';
+                } else {
+                    errorMessage = `خطأ: ${error.message}`;
+                }
+            }
+            
+            alert(errorMessage);
         } finally {
             setIsSubmitting(false);
         }
@@ -111,6 +151,28 @@ const Vehicles = () => {
                     />
                 </div>
             </div>
+
+            {/* Expiring Licenses Alert */}
+            {expiringLicenses.length > 0 && (
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+                    <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                            <h3 className="text-sm font-medium text-yellow-800 mb-1">
+                                تنبيه: رخص قريبة من الانتهاء
+                            </h3>
+                            <div className="text-sm text-yellow-700 space-y-1">
+                                {expiringLicenses.map(v => (
+                                    <p key={v.id}>
+                                        • <span className="font-medium">{v.plate_number}</span> - 
+                                        تنتهي في {new Date(v.license_renewal_date).toLocaleDateString('ar-EG')}
+                                    </p>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {loading ? (
                 <div className="flex items-center justify-center h-64">

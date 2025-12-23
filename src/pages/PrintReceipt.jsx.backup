@@ -1,0 +1,508 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+const PrintReceipt = () => {
+    const navigate = useNavigate();
+    const [receiptData, setReceiptData] = useState(null);
+
+    useEffect(() => {
+        // Get data from sessionStorage
+        const data = sessionStorage.getItem('printReceipt');
+        if (data) {
+            setReceiptData(JSON.parse(data));
+            // Auto print after a short delay
+            setTimeout(() => {
+                window.print();
+            }, 500);
+        } else {
+            alert('لا توجد بيانات للطباعة');
+            window.close();
+        }
+    }, []);
+
+    if (!receiptData) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <p>جاري التحميل...</p>
+            </div>
+        );
+    }
+
+    const { route, stop, collectionData, receiptNumber } = receiptData;
+    const date = new Date(collectionData.collection_time);
+
+    // Format waste types
+    const wasteTypesText = [];
+    if (collectionData.waste_types.hazardous) wasteTypesText.push('نفايات خطرة');
+    if (collectionData.waste_types.sharp) wasteTypesText.push('أدوات حادة');
+    if (collectionData.waste_types.pharmaceutical) wasteTypesText.push('مخلفات دوائية');
+
+    const renderReceiptContent = () => (
+        <>
+            <style>{`
+                @media print {
+                    body { margin: 0; padding: 0; }
+                    .no-print { display: none !important; }
+                    .print-container { 
+                        width: 210mm;
+                        height: 297mm;
+                        padding: 12mm;
+                        margin: 0 auto;
+                    }
+                }
+                @media screen {
+                    .print-container {
+                        max-width: 800px;
+                        margin: 20px auto;
+                        padding: 30px;
+                        background: white;
+                        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                    }
+                }
+                * {
+                    direction: rtl;
+                    text-align: right;
+                }
+                .receipt-border {
+                    border: 2px solid #000;
+                    padding: 15mm;
+                    page-break-after: always;
+                }
+                .receipt-border:last-child {
+                    page-break-after: auto;
+                }
+                .copy-label {
+                    position: absolute;
+                    top: 10px;
+                    left: 10px;
+                    background: #f0f0f0;
+                    border: 2px solid #333;
+                    padding: 5px 15px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    color: #333;
+                    border-radius: 4px;
+                }
+                .receipt-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 10px;
+                    padding-bottom: 8px;
+                    border-bottom: 2px solid #000;
+                }
+                .logo-section {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+                .logo {
+                    width: 60px;
+                    height: 60px;
+                    background: linear-gradient(135deg, #0066cc 0%, #00cc66 100%);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-size: 24px;
+                    font-weight: bold;
+                }
+                .company-name {
+                    font-size: 18px;
+                    font-weight: bold;
+                    color: #333;
+                }
+                .company-name-ar {
+                    font-size: 14px;
+                    color: #666;
+                }
+                .receipt-title {
+                    text-align: center;
+                    font-size: 22px;
+                    font-weight: bold;
+                    margin: 10px 0;
+                    padding: 8px;
+                    background: #f5f5f5;
+                    border-radius: 6px;
+                }
+                .receipt-title-en {
+                    font-size: 14px;
+                    color: #666;
+                    margin-top: 3px;
+                }
+                .info-row {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 5px 0;
+                    border-bottom: 1px solid #ddd;
+                    font-size: 13px;
+                }
+                .info-label {
+                    font-weight: bold;
+                    color: #333;
+                }
+                .section-title {
+                    font-size: 15px;
+                    font-weight: bold;
+                    margin: 10px 0 6px;
+                    padding: 5px;
+                    background: #f5f5f5;
+                    border-right: 4px solid #0066cc;
+                }
+                .checkbox-group {
+                    display: flex;
+                    gap: 20px;
+                    padding: 5px 0;
+                    font-size: 12px;
+                }
+                .checkbox-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+                .checkbox {
+                    width: 16px;
+                    height: 16px;
+                    border: 2px solid #333;
+                    display: inline-block;
+                    position: relative;
+                    flex-shrink: 0;
+                }
+                .checkbox.checked::after {
+                    content: '✓';
+                    position: absolute;
+                    top: -3px;
+                    left: 2px;
+                    font-size: 14px;
+                    font-weight: bold;
+                }
+                .signature-section {
+                    margin-top: 12px;
+                    padding-top: 8px;
+                    border-top: 2px solid #ddd;
+                }
+                .signature-row {
+                    display: flex;
+                    justify-content: space-between;
+                    gap: 20px;
+                    margin-top: 8px;
+                }
+                .signature-box {
+                    flex: 1;
+                }
+                .signature-label {
+                    font-weight: bold;
+                    margin-bottom: 4px;
+                    font-size: 13px;
+                }
+                .signature-content {
+                    border: 2px solid #333;
+                    padding: 5px;
+                    min-height: 80px;
+                    background: white;
+                    display: flex;
+                    flex-direction: column;
+                }
+                .signature-image {
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 40px;
+                }
+                .signature-image img {
+                    max-width: 100%;
+                    height: auto;
+                    max-height: 40px;
+                }
+                .manual-signature-area {
+                    border-top: 1px solid #999;
+                    margin-top: 3px;
+                    padding-top: 5px;
+                    min-height: 35px;
+                    text-align: right;
+                    padding-right: 10px;
+                    font-size: 9px;
+                    color: #999;
+                }
+                .footer-note {
+                    margin-top: 10px;
+                    padding: 8px;
+                    background: #f9f9f9;
+                    border: 1px solid #ddd;
+                    text-align: center;
+                    font-size: 12px;
+                    color: #666;
+                }
+                .qr-code {
+                    width: 60px;
+                    height: 60px;
+                    border: 1px solid #ddd;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 8px;
+                    color: #999;
+                }
+            `}</style>
+
+            <div className="print-container">
+                {/* Copy 1 - Ministry */}
+                <div className="receipt-border" style={{ position: 'relative' }}>
+                    <div className="copy-label">نسخة الوزارة</div>
+                    {renderReceiptContent()}
+                </div>
+
+                {/* Copy 2 - Company */}
+                <div className="receipt-border" style={{ position: 'relative' }}>
+                    <div className="copy-label">نسخة الشركة</div>
+                    {renderReceiptContent()}
+                </div>
+
+                {/* Copy 3 - Hospital */}
+                <div className="receipt-border" style={{ position: 'relative' }}>
+                    <div className="copy-label">نسخة المستشفى</div>
+                    {renderReceiptContent()}
+                </div>
+
+                {/* Copy 4 - Incinerator */}
+                <div className="receipt-border" style={{ position: 'relative' }}>
+                    <div className="copy-label">نسخة المحرقة</div>
+                    {renderReceiptContent()}
+                </div>
+            </div>
+                    {/* Header */}
+                    <div className="receipt-header">
+                        <div className="logo-section">
+                            <div className="logo">EC</div>
+                            <div>
+                                <div className="company-name">Concept Eco Care</div>
+                                <div className="company-name-ar">كونسبت للخدمات البيئية</div>
+                            </div>
+                        </div>
+                        <div style={{ textAlign: 'left' }}>
+                            <div className="qr-code">
+                                <span>Scan to Track</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Title */}
+                    <div className="receipt-title">
+                        إيصال استلام نفايات طبية
+                        <div className="receipt-title-en">Medical Waste Collection Receipt</div>
+                    </div>
+
+                    {/* Receipt Info */}
+                    <div className="info-row">
+                        <div>
+                            <span className="info-label">الرقم: </span>
+                            <span>{receiptNumber}</span>
+                        </div>
+                        <div>
+                            <span className="info-label">التاريخ: </span>
+                            <span>{date.toLocaleDateString('ar-EG')} {date.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                    </div>
+
+                    {/* Hospital Info */}
+                    <div className="section-title">بيانات الجهة:</div>
+                    <div className="info-row">
+                        <span className="info-label">اسم الجهة:</span>
+                        <span>{stop.hospitals?.name}</span>
+                    </div>
+                    <div className="info-row">
+                        <span>{stop.hospitals?.address}</span>
+                    </div>
+                    <div className="info-row">
+                        <div className="checkbox-group">
+                            <div className="checkbox-item">
+                                <span className={`checkbox ${stop.hospitals?.type === 'clinic' ? 'checked' : ''}`}></span>
+                                <span>عيادة مستقلة</span>
+                            </div>
+                            <div className="checkbox-item">
+                                <span className={`checkbox ${stop.hospitals?.type === 'hospital' ? 'checked' : ''}`}></span>
+                                <span>ممثل</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Collection Details */}
+                    <div className="section-title">تفاصيل الاستلام:</div>
+                    <div className="info-row">
+                        <span className="info-label">نوع النفايات:</span>
+                        <div className="checkbox-group">
+                            <div className="checkbox-item">
+                                <span className={`checkbox ${collectionData.waste_types.hazardous ? 'checked' : ''}`}></span>
+                                <span>نفايات خطرة</span>
+                            </div>
+                            <div className="checkbox-item">
+                                <span className={`checkbox ${collectionData.waste_types.sharp ? 'checked' : ''}`}></span>
+                                <span>أدوات حادة</span>
+                            </div>
+                            <div className="checkbox-item">
+                                <span className={`checkbox ${collectionData.waste_types.pharmaceutical ? 'checked' : ''}`}></span>
+                                <span>مخلفات دوائية</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="info-row">
+                        <span className="info-label">عدد الأكياس:</span>
+                        <span>{collectionData.bags_count}</span>
+                    </div>
+                    <div className="info-row">
+                        <span className="info-label">الوزن الإجمالي:</span>
+                        <span>{collectionData.total_weight} كجم</span>
+                    </div>
+                    {collectionData.notes && (
+                        <div className="info-row">
+                            <span className="info-label">ملاحظات:</span>
+                            <span>{collectionData.notes}</span>
+                        </div>
+                    )}
+
+                    {/* Representative Info */}
+                    <div className="section-title">بيانات المندوب:</div>
+                    <div className="info-row">
+                        <span className="info-label">اسم المندوب:</span>
+                        <span>{route.representatives?.users?.full_name || 'غير محدد'}</span>
+                    </div>
+                    <div className="info-row">
+                        <span className="info-label">رقم السيارة:</span>
+                        <span>{route.vehicles?.plate_number || 'غير محدد'}</span>
+                    </div>
+
+                    {/* Signatures */}
+                    <div className="signature-section">
+                        <div className="signature-row">
+                            <div className="signature-box">
+                                <div className="signature-label">توقيع المندوب:</div>
+                                <div className="signature-content">
+                                    {collectionData.representative_signature ? (
+                                        <>
+                                            <div className="signature-image">
+                                                <img src={collectionData.representative_signature} alt="توقيع المندوب" />
+                                            </div>
+                                            <div className="manual-signature-area">
+                                                أو يدوي
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="manual-signature-area" style={{ minHeight: '78px', display: 'flex', alignItems: 'flex-end', paddingBottom: '5px' }}>
+                                            التوقيع
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="signature-box">
+                                <div className="signature-label">توقيع العميل:</div>
+                                <div className="signature-content">
+                                    {collectionData.client_signature ? (
+                                        <>
+                                            <div className="signature-image">
+                                                <img src={collectionData.client_signature} alt="توقيع العميل" />
+                                            </div>
+                                            <div className="manual-signature-area">
+                                                أو يدوي
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="manual-signature-area" style={{ minHeight: '78px', display: 'flex', alignItems: 'flex-end', paddingBottom: '5px' }}>
+                                            التوقيع
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="footer-note">
+                        تم الاستلام طبقاً لاشتراطات وزارة البيئة المصرية
+                    </div>
+        </>
+    );
+
+    return (
+        <>
+            <style>{`
+                @media print {
+                    body { margin: 0; padding: 0; }
+                    .no-print { display: none !important; }
+                    .print-container { 
+                        width: 210mm;
+                        height: 297mm;
+                        padding: 12mm;
+                        margin: 0 auto;
+                    }
+                }
+                @media screen {
+                    .print-container {
+                        max-width: 800px;
+                        margin: 20px auto;
+                        padding: 30px;
+                        background: white;
+                        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                    }
+                }
+                * {
+                    direction: rtl;
+                    text-align: right;
+                }
+                .receipt-border {
+                    border: 2px solid #000;
+                    padding: 15mm;
+                    page-break-after: always;
+                }
+                .receipt-border:last-child {
+                    page-break-after: auto;
+                }
+                .copy-label {
+                    position: absolute;
+                    top: 10px;
+                    left: 10px;
+                    background: #f0f0f0;
+                    border: 2px solid #333;
+                    padding: 5px 15px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    color: #333;
+                    border-radius: 4px;
+                }
+            <div className="no-print" style={{ textAlign: 'center', margin: '20px' }}>
+                <button
+                    onClick={() => window.print()}
+                    style={{
+                        padding: '12px 24px',
+                        background: '#0066cc',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '16px',
+                        cursor: 'pointer',
+                        marginLeft: '10px'
+                    }}
+                >
+                    طباعة
+                </button>
+                <button
+                    onClick={() => window.close()}
+                    style={{
+                        padding: '12px 24px',
+                        background: '#666',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '16px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    إغلاق
+                </button>
+            </div>
+        </>
+    );
+};
+
+export default PrintReceipt;

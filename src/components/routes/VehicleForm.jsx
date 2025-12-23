@@ -1,17 +1,47 @@
 import { useForm } from 'react-hook-form';
 import { Loader2, X } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../services/supabase';
 import clsx from 'clsx';
 
 const VehicleForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) => {
+    const [representatives, setRepresentatives] = useState([]);
+    const [loadingReps, setLoadingReps] = useState(false);
     const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
     useEffect(() => {
         if (isOpen) {
+            // Fetch representatives
+            const fetchRepresentatives = async () => {
+                setLoadingReps(true);
+                try {
+                    const { data, error } = await supabase
+                        .from('representatives')
+                        .select(`
+                            id,
+                            users!user_id (
+                                full_name
+                            )
+                        `)
+                        .order('created_at', { ascending: false });
+
+                    if (error) throw error;
+                    setRepresentatives(data || []);
+                } catch (error) {
+                    console.error('Error fetching representatives:', error);
+                } finally {
+                    setLoadingReps(false);
+                }
+            };
+
+            fetchRepresentatives();
+
             reset(initialData || {
                 plate_number: '',
                 model: '',
                 capacity_kg: '',
+                owner_representative_id: '',
+                license_renewal_date: '',
                 is_active: true
             });
         }
@@ -64,6 +94,33 @@ const VehicleForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) =
                             className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
                             placeholder="5000"
                         />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">مالك المركبة (المندوب)</label>
+                        <select
+                            {...register('owner_representative_id')}
+                            className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
+                            disabled={loadingReps}
+                        >
+                            <option value="">اختر المندوب...</option>
+                            {representatives.map(rep => (
+                                <option key={rep.id} value={rep.id}>
+                                    {rep.users?.full_name || 'مندوب'}
+                                </option>
+                            ))}
+                        </select>
+                        {loadingReps && <p className="text-xs text-gray-500 mt-1">جاري تحميل المندوبين...</p>}
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">تاريخ تجديد الرخصة</label>
+                        <input
+                            type="date"
+                            {...register('license_renewal_date')}
+                            className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">سيتم تنبيهك قبل انتهاء الرخصة</p>
                     </div>
 
                     <div className="flex items-center gap-2">

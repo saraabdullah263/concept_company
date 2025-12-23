@@ -59,7 +59,7 @@ const RouteForm = ({ isOpen, onClose, onSubmit, initialData }) => {
                         .select('id, name')
                         .eq('is_active', true);
 
-                    // 4. Hospitals
+                    // 4. Clients (Hospitals)
                     const { data: hosps } = await supabase
                         .from('hospitals')
                         .select('id, name, address')
@@ -211,7 +211,7 @@ const RouteForm = ({ isOpen, onClose, onSubmit, initialData }) => {
                     {/* 2. Stops */}
                     <section className="space-y-4">
                         <div className="flex items-center justify-between border-b pb-2">
-                            <h3 className="text-lg font-medium text-gray-900">محطات الوقوف (المستشفيات)</h3>
+                            <h3 className="text-lg font-medium text-gray-900">محطات الوقوف (العملاء)</h3>
                             <button
                                 type="button"
                                 onClick={() => append({ hospital_id: '', estimated_arrival: '' })}
@@ -233,13 +233,13 @@ const RouteForm = ({ isOpen, onClose, onSubmit, initialData }) => {
                                         <Controller
                                             name={`stops.${index}.hospital_id`}
                                             control={control}
-                                            rules={{ required: 'يجب اختيار المستشفى' }}
+                                            rules={{ required: 'يجب اختيار العميل' }}
                                             render={({ field: selectField }) => (
                                                 <select
                                                     {...selectField}
                                                     className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white text-sm"
                                                 >
-                                                    <option value="">اختر المستشفى...</option>
+                                                    <option value="">اختر العميل...</option>
                                                     {hospitals.map(h => (
                                                         <option key={h.id} value={h.id}>{h.name}</option>
                                                     ))}

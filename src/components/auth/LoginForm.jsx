@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
+import Logo from '../common/Logo';
 
 const LoginForm = () => {
     const { signIn } = useAuth();
@@ -25,8 +26,8 @@ const LoginForm = () => {
     return (
         <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-xl shadow-lg border border-gray-100">
             <div className="text-center">
-                <h2 className="text-3xl font-bold text-gray-900 font-sans mb-2">تسجيل الدخول</h2>
-                <p className="text-gray-500">نظام إدارة المخلفات الطبية</p>
+                <Logo className="h-32 w-auto mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-gray-900 font-sans mb-2">تسجيل الدخول</h2>
             </div>
 
             {error && (

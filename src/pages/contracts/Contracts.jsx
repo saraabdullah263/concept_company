@@ -124,7 +124,7 @@ const Contracts = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">إدارة العقود</h1>
-                    <p className="text-sm text-gray-500 mt-1">عقود المستشفيات وأسعار الخدمة</p>
+                    <p className="text-sm text-gray-500 mt-1">عقود العملاء وأسعار الخدمة</p>
                 </div>
 
                 <button
@@ -141,7 +141,7 @@ const Contracts = () => {
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
                         type="text"
-                        placeholder="بحث باسم المستشفى..."
+                        placeholder="بحث باسم العميل..."
                         className="w-full pr-10 pl-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -163,7 +163,7 @@ const Contracts = () => {
 
             {contracts.length === 0 && !loading && !searchTerm && (
                 <div className="text-center py-12 text-gray-500">
-                    <p>لا توجد عقود مسجلة. أضف عقداً لأحد المستشفيات.</p>
+                    <p>لا توجد عقود مسجلة. أضف عقداً لأحد العملاء.</p>
                 </div>
             )}
 

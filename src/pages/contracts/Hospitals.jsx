@@ -23,10 +23,10 @@ const Hospitals = () => {
                     *,
                     contracts!hospital_id(count)
                 `)
-                .order('created_at', { ascending: false });
+                .order('created_at', { ascending: false});
 
             if (searchTerm) {
-                query = query.ilike('name', `%${searchTerm}%`);
+                query = query.or(`name.ilike.%${searchTerm}%,governorate.ilike.%${searchTerm}%,city.ilike.%${searchTerm}%`);
             }
 
             const { data, error } = await query;
@@ -41,7 +41,7 @@ const Hospitals = () => {
 
             setHospitals(hospitalsWithCount);
         } catch (error) {
-            console.error('Error fetching hospitals:', error);
+            console.error('Error fetching clients:', error);
         } finally {
             setLoading(false);
         }
@@ -73,7 +73,7 @@ const Hospitals = () => {
             if (checkError) throw checkError;
 
             if (activeContracts && activeContracts.length > 0) {
-                alert(`❌ لا يمكن حذف هذا المستشفى لأنه يحتوي على ${activeContracts.length} عقد نشط. يجب إنهاء أو إلغاء العقود أولاً.`);
+                alert(`❌ لا يمكن حذف هذا العميل لأنه يحتوي على ${activeContracts.length} عقد نشط. يجب إنهاء أو إلغاء العقود أولاً.`);
                 return;
             }
 
@@ -85,16 +85,16 @@ const Hospitals = () => {
 
             if (allCheckError) throw allCheckError;
 
-            let confirmMessage = 'هل أنت متأكد من حذف هذا المستشفى؟';
+            let confirmMessage = 'هل أنت متأكد من حذف هذا العميل؟';
             if (allContracts && allContracts.length > 0) {
-                confirmMessage = `⚠️ هذا المستشفى يحتوي على ${allContracts.length} عقد منتهي أو ملغي. هل تريد حذف المستشفى وجميع عقوده؟`;
+                confirmMessage = `⚠️ هذا العميل يحتوي على ${allContracts.length} عقد منتهي أو ملغي. هل تريد حذف العميل وجميع عقوده؟`;
             }
 
             if (window.confirm(confirmMessage)) {
                 const { error } = await supabase.from('hospitals').delete().eq('id', id);
                 if (error) throw error;
                 setHospitals(hospitals.filter(h => h.id !== id));
-                alert('✅ تم حذف المستشفى بنجاح');
+                alert('✅ تم حذف العميل بنجاح');
             }
         } catch (error) {
             console.error('Error deleting hospital:', error);
@@ -105,14 +105,27 @@ const Hospitals = () => {
     const handleSubmit = async (data) => {
         setIsSubmitting(true);
         try {
-            // Clean data - remove computed fields
+            // Clean data - include all new fields
             const cleanData = {
                 name: data.name,
-                address: data.address,
-                contact_person: data.contact_person,
-                contact_phone: data.contact_phone,
+                client_type: data.client_type,
+                parent_entity: data.parent_entity,
+                governorate: data.governorate,
+                city: data.city,
+                detailed_address: data.detailed_address,
+                latitude: data.latitude ? parseFloat(data.latitude) : null,
+                longitude: data.longitude ? parseFloat(data.longitude) : null,
+                annual_visits_count: data.annual_visits_count ? parseInt(data.annual_visits_count) : null,
+                annual_contract_price: data.annual_contract_price ? parseFloat(data.annual_contract_price) : null,
+                contact_person_name: data.contact_person_name,
+                contact_mobile: data.contact_mobile,
+                contact_landline: data.contact_landline,
                 contact_email: data.contact_email,
-                is_active: data.is_active
+                is_active: data.is_active,
+                // Keep old fields for backward compatibility
+                address: data.detailed_address || data.address,
+                contact_person: data.contact_person_name || data.contact_person,
+                contact_phone: data.contact_mobile || data.contact_phone
             };
 
             if (editingHospital) {
@@ -144,8 +157,8 @@ const Hospitals = () => {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">المستشفيات</h1>
-                    <p className="text-sm text-gray-500 mt-1">إدارة قائمة المستشفيات والعملاء</p>
+                    <h1 className="text-2xl font-bold text-gray-900">العملاء</h1>
+                    <p className="text-sm text-gray-500 mt-1">إدارة قائمة العملاء (مستشفيات، عيادات، معامل، مراكز طبية)</p>
                 </div>
 
                 <button
@@ -153,7 +166,7 @@ const Hospitals = () => {
                     onClick={handleCreate}
                 >
                     <Plus className="w-5 h-5" />
-                    <span>إضافة مستشفى</span>
+                    <span>إضافة عميل</span>
                 </button>
             </div>
 
@@ -163,7 +176,7 @@ const Hospitals = () => {
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
                         type="text"
-                        placeholder="بحث باسم المستشفى..."
+                        placeholder="بحث باسم العميل، المحافظة، أو المدينة..."
                         className="w-full pr-10 pl-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}

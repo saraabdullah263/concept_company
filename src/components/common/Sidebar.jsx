@@ -15,14 +15,14 @@ import {
     Flame
 } from 'lucide-react';
 import clsx from 'clsx';
-import { useState } from 'react';
+import Logo from './Logo';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
     const { signOut, userRole } = useAuth();
 
     const navigation = [
         { name: 'لوحة التحكم', to: '/', icon: LayoutDashboard, roles: ['admin', 'logistics_manager', 'accountant', 'supervisor', 'representative'] },
-        { name: 'المستشفيات', to: '/hospitals', icon: FileText, roles: ['admin', 'logistics_manager', 'accountant'] },
+        { name: 'العملاء', to: '/hospitals', icon: FileText, roles: ['admin', 'logistics_manager', 'accountant'] },
         { name: 'العقود', to: '/contracts', icon: FileText, roles: ['admin', 'logistics_manager', 'accountant'] },
         { name: 'خطوط السير', to: '/routes', icon: Truck, roles: ['admin', 'logistics_manager', 'supervisor', 'representative'] },
         { name: 'المركبات', to: '/vehicles', icon: Truck, roles: ['admin', 'logistics_manager'] },
@@ -38,7 +38,41 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     // Filter links based on role
     const filteredNav = userRole
         ? navigation.filter(item => item.roles.includes(userRole))
-        : navigation; // Show all if role not loaded yet
+        : []; // Don't show anything until role is loaded
+
+    // Show loading state while role is being fetched
+    if (!userRole) {
+        return (
+            <>
+                {/* Mobile Overlay */}
+                <div
+                    className={clsx(
+                        "fixed inset-0 z-20 bg-gray-900 bg-opacity-50 transition-opacity lg:hidden",
+                        isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+                    )}
+                    onClick={toggleSidebar}
+                />
+
+                {/* Sidebar Loading State */}
+                <div
+                    className={clsx(
+                        "fixed inset-y-0 right-0 z-30 w-64 bg-white border-l border-gray-200 transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
+                        isOpen ? "translate-x-0" : "translate-x-full"
+                    )}
+                >
+                    <div className="flex items-center justify-center h-24 px-4 border-b border-gray-200 relative">
+                        <button onClick={toggleSidebar} className="lg:hidden text-gray-500 hover:text-gray-700 absolute right-4">
+                            <X className="w-6 h-6" />
+                        </button>
+                        <Logo className="h-20 w-auto" />
+                    </div>
+                    <div className="p-4 flex items-center justify-center">
+                        <div className="animate-pulse text-gray-400 text-sm">جاري التحميل...</div>
+                    </div>
+                </div>
+            </>
+        );
+    }
 
     return (
         <>
@@ -58,13 +92,12 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     isOpen ? "translate-x-0" : "translate-x-full"
                 )}
             >
-                <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
-                    <span className="text-xl font-bold text-brand-600">إدارة المخلفات</span>
-                    <button onClick={toggleSidebar} className="lg:hidden text-gray-500 hover:text-gray-700">
+                <div className="flex items-center justify-center h-24 px-4 border-b border-gray-200 relative">
+                    <button onClick={toggleSidebar} className="lg:hidden text-gray-500 hover:text-gray-700 absolute right-4">
                         <X className="w-6 h-6" />
                     </button>
+                    <Logo className="h-20 w-auto" />
                 </div>
-
                 <nav className="p-4 space-y-1 overflow-y-auto h-[calc(100vh-4rem)]">
                     {filteredNav.map((item) => (
                         <NavLink

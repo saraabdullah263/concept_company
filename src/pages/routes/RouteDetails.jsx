@@ -1,16 +1,21 @@
 import { useParams, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
-import { ArrowRight, MapPin, User, Truck, Calendar, Package, CheckCircle, Clock, Loader2 } from 'lucide-react';
+import { ArrowRight, MapPin, User, Truck, Calendar, Package, CheckCircle, Clock, Loader2, Factory } from 'lucide-react';
 import PrintReceipts from '../../components/routes/PrintReceipts';
+import PrintCompleteReceipt from '../../components/routes/PrintCompleteReceipt';
+import IncineratorDeliveryModal from '../../components/routes/IncineratorDeliveryModal';
 
 const RouteDetails = () => {
     const { id } = useParams();
     const [route, setRoute] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [deliveries, setDeliveries] = useState([]);
+    const [showDeliveryModal, setShowDeliveryModal] = useState(false);
 
     useEffect(() => {
         fetchRouteDetails();
+        fetchDeliveries();
     }, [id]);
 
     const fetchRouteDetails = async () => {
@@ -76,6 +81,27 @@ const RouteDetails = () => {
         }
     };
 
+    const fetchDeliveries = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('incinerator_deliveries')
+                .select('*, incinerators(name)')
+                .eq('route_id', id)
+                .order('delivery_order', { ascending: true });
+
+            if (!error && data) {
+                setDeliveries(data);
+            }
+        } catch (error) {
+            console.error('Error fetching deliveries:', error);
+        }
+    };
+
+    const handleDeliverySuccess = () => {
+        fetchRouteDetails();
+        fetchDeliveries();
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -126,8 +152,8 @@ const RouteDetails = () => {
                     <p className="text-sm text-gray-500 mt-1">ID: {route.id.slice(0, 8)}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    {route.route_stops && route.route_stops.length > 0 && (
-                        <PrintReceipts route={route} stops={route.route_stops} />
+                    {route.route_stops && route.route_stops.length > 0 && deliveries.length > 0 && (
+                        <PrintCompleteReceipt route={route} stops={route.route_stops} deliveries={deliveries} />
                     )}
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(route.status)}`}>
                         {getStatusText(route.status)}
@@ -136,7 +162,7 @@ const RouteDetails = () => {
             </div>
 
             {/* Info Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center gap-3 mb-2">
                         <User className="w-5 h-5 text-brand-600" />
@@ -161,7 +187,139 @@ const RouteDetails = () => {
                     </div>
                     <p className="font-medium">{route.total_weight_collected || 0} كجم</p>
                 </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center gap-3 mb-2">
+                        <Factory className="w-5 h-5 text-green-600" />
+                        <span className="text-sm text-gray-500">المسلم للمحارق</span>
+                    </div>
+                    <p className="font-medium text-green-600">
+                        {deliveries.reduce((sum, d) => sum + parseFloat(d.weight_delivered || 0), 0).toFixed(2)} كجم
+                    </p>
+                </div>
             </div>
+
+            {/* Incinerator Deliveries Section */}
+            {deliveries.length > 0 ? (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+                    <div className="p-4 border-b border-gray-100">
+                        <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                            <Factory className="w-5 h-5 text-green-600" />
+                            تسليم النفايات للمحارق ({deliveries.length})
+                        </h3>
+                    </div>
+                    <div className="p-4">
+                        <div className="space-y-3">
+                            {deliveries.map((delivery, index) => (
+                                <div key={delivery.id} className="border-2 border-green-100 rounded-lg p-4 bg-green-50">
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div>
+                                            <h4 className="font-bold text-gray-900 flex items-center gap-2">
+                                                <span className="bg-green-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">
+                                                    {delivery.delivery_order}
+                                                </span>
+                                                {delivery.incinerators?.name}
+                                            </h4>
+                                            <p className="text-sm text-gray-600 mt-1">
+                                                {new Date(delivery.delivery_time).toLocaleString('ar-EG')}
+                                            </p>
+                                        </div>
+                                        <div className="text-left">
+                                            <div className="text-sm text-gray-600">الكمية المسلمة</div>
+                                            <div className="font-bold text-green-600">
+                                                {delivery.bags_count} كيس - {delivery.weight_delivered} كجم
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Photo and Signature */}
+                                    <div className="grid grid-cols-2 gap-4 mt-3">
+                                        {delivery.photo_proof && (
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-700 mb-2">📷 صورة الإيصال:</p>
+                                                <img 
+                                                    src={delivery.photo_proof} 
+                                                    alt="إيصال المحرقة"
+                                                    className="w-full h-32 object-cover rounded-lg border-2 border-gray-200 cursor-pointer hover:border-green-500"
+                                                    onClick={() => window.open(delivery.photo_proof, '_blank')}
+                                                />
+                                            </div>
+                                        )}
+                                        {delivery.receiver_signature && (
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-700 mb-2">✍️ توقيع المستلم:</p>
+                                                <img 
+                                                    src={delivery.receiver_signature} 
+                                                    alt="توقيع المستلم"
+                                                    className="w-full h-32 object-contain bg-white rounded-lg border-2 border-gray-200"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {delivery.notes && (
+                                        <div className="mt-3 pt-3 border-t border-green-200">
+                                            <p className="text-sm text-gray-600">
+                                                <span className="font-medium">ملاحظات: </span>
+                                                {delivery.notes}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Summary */}
+                        <div className="mt-4 pt-4 border-t-2 border-gray-200">
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <div className="bg-blue-50 p-3 rounded-lg">
+                                    <div className="text-sm text-gray-600 mb-1">إجمالي المجمع</div>
+                                    <div className="font-bold text-blue-600">
+                                        {route.route_stops?.reduce((sum, stop) => 
+                                            sum + (stop.collection_details?.bags_count || 0), 0) || 0} كيس
+                                    </div>
+                                    <div className="font-bold text-blue-600">
+                                        {route.total_weight_collected || 0} كجم
+                                    </div>
+                                </div>
+                                <div className="bg-green-50 p-3 rounded-lg">
+                                    <div className="text-sm text-gray-600 mb-1">إجمالي المسلم</div>
+                                    <div className="font-bold text-green-600">
+                                        {deliveries.reduce((sum, d) => sum + parseInt(d.bags_count || 0), 0)} كيس
+                                    </div>
+                                    <div className="font-bold text-green-600">
+                                        {deliveries.reduce((sum, d) => sum + parseFloat(d.weight_delivered || 0), 0).toFixed(2)} كجم
+                                    </div>
+                                </div>
+                                <div className="bg-orange-50 p-3 rounded-lg">
+                                    <div className="text-sm text-gray-600 mb-1">متبقي في السيارة</div>
+                                    <div className="font-bold text-orange-600">
+                                        {route.remaining_bags || 0} كيس
+                                    </div>
+                                    <div className="font-bold text-orange-600">
+                                        {route.remaining_weight || 0} كجم
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                route.route_stops?.some(stop => stop.collection_details) && (
+                    <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-6 text-center">
+                        <Factory className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
+                        <h3 className="font-bold text-gray-900 mb-2">لم يتم تسليم النفايات للمحارق بعد</h3>
+                        <p className="text-gray-600 mb-4">تم التجميع من العملاء، يمكنك الآن تسجيل التسليم للمحارق</p>
+                        <button
+                            onClick={() => setShowDeliveryModal(true)}
+                            className="bg-brand-600 text-white px-6 py-3 rounded-lg hover:bg-brand-700 font-medium inline-flex items-center gap-2"
+                        >
+                            <Factory className="w-5 h-5" />
+                            تسليم للمحارق
+                        </button>
+                    </div>
+                )
+            )}
 
             {/* Route Stops */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100">
@@ -205,9 +363,103 @@ const RouteDetails = () => {
                                         </div>
                                     </div>
 
-                                    {/* Additional Details - Photos, Signatures, Times */}
-                                    {(stop.photo_proof || stop.hospital_signature || stop.arrival_time) && (
+                                    {/* Additional Details - Collection Data, Photos, Signatures, Times */}
+                                    {(stop.collection_details || stop.photo_proof || stop.hospital_signature || stop.arrival_time) && (
                                         <div className="mt-4 ml-12 space-y-3 bg-gray-50 rounded-lg p-4">
+                                            {/* Collection Details */}
+                                            {stop.collection_details && (
+                                                <div className="bg-white rounded-lg p-4 border-2 border-brand-100">
+                                                    <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                                                        <Package className="w-4 h-4 text-brand-600" />
+                                                        تفاصيل الاستلام
+                                                    </h5>
+                                                    
+                                                    {/* Waste Types */}
+                                                    <div className="mb-3">
+                                                        <p className="text-sm font-medium text-gray-700 mb-1">نوع النفايات:</p>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {stop.collection_details.waste_types?.hazardous && (
+                                                                <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded-full">
+                                                                    نفايات خطرة
+                                                                </span>
+                                                            )}
+                                                            {stop.collection_details.waste_types?.sharp && (
+                                                                <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full">
+                                                                    أدوات حادة
+                                                                </span>
+                                                            )}
+                                                            {stop.collection_details.waste_types?.pharmaceutical && (
+                                                                <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
+                                                                    مخلفات دوائية
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Bags and Weight */}
+                                                    <div className="grid grid-cols-2 gap-4 mb-3 text-sm">
+                                                        <div>
+                                                            <span className="text-gray-600">عدد الأكياس: </span>
+                                                            <span className="font-medium">{stop.collection_details.bags_count}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-gray-600">الوزن الإجمالي: </span>
+                                                            <span className="font-medium">{stop.collection_details.total_weight} كجم</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Notes */}
+                                                    {stop.collection_details.notes && (
+                                                        <div className="mb-3">
+                                                            <p className="text-sm font-medium text-gray-700 mb-1">ملاحظات:</p>
+                                                            <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                                                                {stop.collection_details.notes}
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Signatures */}
+                                                    <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-200">
+                                                        <div>
+                                                            <p className="text-sm font-medium text-gray-700 mb-2">توقيع المندوب:</p>
+                                                            {stop.collection_details.representative_signature ? (
+                                                                <div className="bg-white p-2 rounded border border-gray-200">
+                                                                    <img 
+                                                                        src={stop.collection_details.representative_signature} 
+                                                                        alt="توقيع المندوب"
+                                                                        className="max-w-full h-20 object-contain"
+                                                                    />
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-xs text-gray-500 italic">توقيع يدوي على الإيصال</p>
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-medium text-gray-700 mb-2">توقيع العميل:</p>
+                                                            {stop.collection_details.client_signature ? (
+                                                                <div className="bg-white p-2 rounded border border-gray-200">
+                                                                    <img 
+                                                                        src={stop.collection_details.client_signature} 
+                                                                        alt="توقيع العميل"
+                                                                        className="max-w-full h-20 object-contain"
+                                                                    />
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-xs text-gray-500 italic">توقيع يدوي على الإيصال</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Collection Time */}
+                                                    {stop.collection_details.collection_time && (
+                                                        <div className="text-xs text-gray-500 mt-3 pt-3 border-t border-gray-200">
+                                                            <span className="font-medium">⏰ وقت الاستلام: </span>
+                                                            <span>{new Date(stop.collection_details.collection_time).toLocaleString('ar-EG')}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
                                             {/* Times */}
                                             <div className="grid grid-cols-2 gap-4 text-sm">
                                                 {stop.arrival_time && (
@@ -243,25 +495,6 @@ const RouteDetails = () => {
                                                 </div>
                                             )}
 
-                                            {/* Signature */}
-                                            {stop.hospital_signature?.url && (
-                                                <div>
-                                                    <p className="text-sm font-medium text-gray-700 mb-2">✍️ التوقيع الإلكتروني:</p>
-                                                    <div className="inline-block bg-white p-3 rounded-lg border-2 border-gray-200">
-                                                        <img 
-                                                            src={stop.hospital_signature.url} 
-                                                            alt="توقيع المستشفى"
-                                                            className="max-w-xs"
-                                                        />
-                                                    </div>
-                                                    {stop.signature_time && (
-                                                        <p className="text-xs text-gray-500 mt-1">
-                                                            تم التوقيع: {new Date(stop.signature_time).toLocaleString('ar-EG')}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
-
                                             {/* Location Info */}
                                             {stop.arrival_location && (
                                                 <div className="text-xs text-gray-500 pt-2 border-t border-gray-200">
@@ -291,6 +524,14 @@ const RouteDetails = () => {
                     <p className="text-gray-700">{route.notes}</p>
                 </div>
             )}
+
+            {/* Incinerator Delivery Modal */}
+            <IncineratorDeliveryModal
+                isOpen={showDeliveryModal}
+                onClose={() => setShowDeliveryModal(false)}
+                route={route}
+                onSuccess={handleDeliverySuccess}
+            />
         </div>
     );
 };

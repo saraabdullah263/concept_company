@@ -4,6 +4,7 @@ import { supabase } from '../../services/supabase';
 import { ArrowRight, Printer, Download, Edit, Loader2, Calendar, Building2, FileText, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { getCachedLogoBase64 } from '../../utils/logoBase64';
 
 const InvoiceDetails = () => {
     const { id } = useParams();
@@ -11,9 +12,11 @@ const InvoiceDetails = () => {
     const [invoice, setInvoice] = useState(null);
     const [routes, setRoutes] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [logoBase64, setLogoBase64] = useState(null);
 
     useEffect(() => {
         fetchInvoiceDetails();
+        getCachedLogoBase64().then(setLogoBase64);
     }, [id]);
 
     const fetchInvoiceDetails = async () => {
@@ -104,10 +107,11 @@ const InvoiceDetails = () => {
         
         setTimeout(() => {
             printWindow.print();
-        }, 250);
+        }, 300);
     };
 
     const generateInvoiceHTML = () => {
+        const logoUrl = logoBase64 || `${window.location.origin}/logo.png`;
         const totalWeight = routes.reduce((sum, route) => sum + route.weight_for_hospital, 0);
         
         const routesRows = routes.map((route) => {
@@ -292,7 +296,8 @@ const InvoiceDetails = () => {
             </head>
             <body>
                 <div class="header">
-                    <h1>شركة إدارة المخلفات الطبية</h1>
+                    <img src="${logoUrl}" alt="Concept Eco Care" style="height: 80px; margin-bottom: 10px;" />
+                    <h1>Concept Eco Care</h1>
                     <h2>فاتورة ضريبية</h2>
                 </div>
 
@@ -463,7 +468,7 @@ const InvoiceDetails = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 print:shadow-none print:border-0">
                 {/* Company Header */}
                 <div className="text-center mb-8 pb-6 border-b-2 border-gray-200">
-                    <h2 className="text-3xl font-bold text-brand-600 mb-2">شركة إدارة المخلفات الطبية</h2>
+                    <h2 className="text-3xl font-bold text-brand-600 mb-2">Concept Eco Care</h2>
                     <p className="text-gray-600">فاتورة ضريبية</p>
                 </div>
 

@@ -20,7 +20,7 @@ const Expenses = () => {
             let query = supabase
                 .from('expenses')
                 .select('*')
-                .order('date', { ascending: false });
+                .order('expense_date', { ascending: false });
 
             if (searchTerm) {
                 query = query.ilike('description', `%${searchTerm}%`);

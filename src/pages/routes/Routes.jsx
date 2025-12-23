@@ -103,6 +103,29 @@ const RoutesPage = () => {
                     vehicles: route.vehicle_id ? vehiclesMap[route.vehicle_id] : null
                 }));
 
+                // Fetch stop counts and weights for each route
+                const routeIds = data.map(r => r.id);
+                const { data: stopsData } = await supabase
+                    .from('route_stops')
+                    .select('route_id, collection_details')
+                    .in('route_id', routeIds);
+
+                if (stopsData) {
+                    const stopCounts = {};
+                    const totalWeights = {};
+                    
+                    stopsData.forEach(stop => {
+                        stopCounts[stop.route_id] = (stopCounts[stop.route_id] || 0) + 1;
+                        const weight = stop.collection_details?.total_weight || 0;
+                        totalWeights[stop.route_id] = (totalWeights[stop.route_id] || 0) + parseFloat(weight);
+                    });
+
+                    enrichedData.forEach(route => {
+                        route.stop_count = stopCounts[route.id] || 0;
+                        route.total_weight_collected = totalWeights[route.id] || route.total_weight_collected || 0;
+                    });
+                }
+
                 setRoutes(enrichedData);
             } else {
                 setRoutes([]);

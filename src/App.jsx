@@ -18,6 +18,7 @@ import InvoiceDetails from './pages/accounting/InvoiceDetails';
 import Reports from './pages/reports/Reports';
 import Settings from './pages/settings/Settings';
 import Setup from './pages/Setup';
+import PrintReceipt from './pages/PrintReceipt';
 import MainLayout from './components/common/MainLayout';
 import RoleProtectedRoute from './components/common/RoleProtectedRoute';
 
@@ -40,6 +41,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/setup" element={<Setup />} />
+          <Route path="/print-receipt" element={<PrintReceipt />} />
 
           <Route path="/" element={
             <ProtectedRoute>
