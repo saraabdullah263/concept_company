@@ -181,7 +181,7 @@ const RouteStopCard = ({ stop, stopNumber, routeId, route, isRouteInProgress, cu
                         </div>
                     </div>
 
-                    {isArrived && (
+                    {(isArrived || isCollected) && (
                         <button
                             onClick={() => setIsExpanded(!isExpanded)}
                             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -214,7 +214,7 @@ const RouteStopCard = ({ stop, stopNumber, routeId, route, isRouteInProgress, cu
             </div>
 
             {/* Expanded Content */}
-            {isExpanded && isArrived && (
+            {isExpanded && (isArrived || isCollected) && (
                 <div className="border-t border-gray-200 p-4 space-y-3 bg-gray-50">
                     {/* Contact Info */}
                     <div className="text-sm text-gray-600 space-y-1">

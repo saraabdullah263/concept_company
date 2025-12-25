@@ -117,6 +117,8 @@ const Hospitals = () => {
                 longitude: data.longitude ? parseFloat(data.longitude) : null,
                 annual_visits_count: data.annual_visits_count ? parseInt(data.annual_visits_count) : null,
                 annual_contract_price: data.annual_contract_price ? parseFloat(data.annual_contract_price) : null,
+                single_visit_price: data.single_visit_price ? parseFloat(data.single_visit_price) : null,
+                monthly_contract_price: data.monthly_contract_price ? parseFloat(data.monthly_contract_price) : null,
                 contact_person_name: data.contact_person_name,
                 contact_mobile: data.contact_mobile,
                 contact_landline: data.contact_landline,

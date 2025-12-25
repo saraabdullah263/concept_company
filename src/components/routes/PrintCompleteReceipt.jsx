@@ -26,7 +26,9 @@ const PrintCompleteReceipt = ({ route, stops, deliveries }) => {
 
         const totalCollected = {
             bags: stops.reduce((sum, stop) => sum + (stop.collection_details?.bags_count || 0), 0),
-            weight: stops.reduce((sum, stop) => sum + (parseFloat(stop.collection_details?.total_weight) || 0), 0)
+            weight: stops.reduce((sum, stop) => sum + (parseFloat(stop.collection_details?.total_weight) || 0), 0),
+            safetyBoxBags: stops.reduce((sum, stop) => sum + (stop.collection_details?.safety_box_bags || 0), 0),
+            safetyBoxCount: stops.reduce((sum, stop) => sum + (stop.collection_details?.safety_box_count || 0), 0)
         };
 
         const totalDelivered = {
@@ -46,6 +48,7 @@ const PrintCompleteReceipt = ({ route, stops, deliveries }) => {
                 <td>${stop.hospitals?.name || 'غير محدد'}</td>
                 <td>${stop.collection_details?.bags_count || 0}</td>
                 <td>${stop.collection_details?.total_weight || 0}</td>
+                <td>${stop.collection_details?.safety_box_bags || 0} / ${stop.collection_details?.safety_box_count || 0}</td>
                 <td>${stop.collection_details?.collection_time ? 
                     new Date(stop.collection_details.collection_time).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) 
                     : '-'}</td>
@@ -298,10 +301,11 @@ const PrintCompleteReceipt = ({ route, stops, deliveries }) => {
                     <table>
                         <thead>
                             <tr>
-                                <th style="width: 8%">م</th>
-                                <th style="width: 40%">اسم المنشأة</th>
-                                <th style="width: 17%">عدد الأكياس</th>
-                                <th style="width: 17%">الوزن (كجم)</th>
+                                <th style="width: 6%">م</th>
+                                <th style="width: 30%">اسم المنشأة</th>
+                                <th style="width: 14%">عدد الأكياس</th>
+                                <th style="width: 14%">الوزن (كجم)</th>
+                                <th style="width: 18%">صناديق الأمانة</th>
                                 <th style="width: 18%">ساعة الاستلام</th>
                             </tr>
                         </thead>
@@ -311,6 +315,7 @@ const PrintCompleteReceipt = ({ route, stops, deliveries }) => {
                                 <td colspan="2">الإجمالي</td>
                                 <td>${totalCollected.bags}</td>
                                 <td>${totalCollected.weight.toFixed(2)}</td>
+                                <td>${totalCollected.safetyBoxBags} / ${totalCollected.safetyBoxCount}</td>
                                 <td>-</td>
                             </tr>
                         </tbody>
@@ -347,6 +352,9 @@ const PrintCompleteReceipt = ({ route, stops, deliveries }) => {
                             <div class="summary-label">إجمالي المجمع</div>
                             <div class="summary-value">${totalCollected.bags} كيس</div>
                             <div class="summary-value">${totalCollected.weight.toFixed(2)} كجم</div>
+                            ${totalCollected.safetyBoxBags > 0 || totalCollected.safetyBoxCount > 0 ? `
+                                <div class="summary-value" style="font-size: 10pt; color: #ff9800;">📦 ${totalCollected.safetyBoxBags} كيس / ${totalCollected.safetyBoxCount} صندوق</div>
+                            ` : ''}
                         </div>
                         <div class="summary-box delivered">
                             <div class="summary-label">إجمالي المسلم</div>

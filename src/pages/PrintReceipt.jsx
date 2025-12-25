@@ -95,16 +95,8 @@ const PrintReceipt = () => {
                     <span className="info-label">نوع النفايات:</span>
                     <div className="checkbox-group">
                         <div className="checkbox-item">
-                            <span className={`checkbox ${collectionData.waste_types.hazardous ? 'checked' : ''}`}></span>
+                            <span className={`checkbox ${collectionData.waste_types?.hazardous ? 'checked' : ''}`}></span>
                             <span>نفايات خطرة</span>
-                        </div>
-                        <div className="checkbox-item">
-                            <span className={`checkbox ${collectionData.waste_types.sharp ? 'checked' : ''}`}></span>
-                            <span>أدوات حادة</span>
-                        </div>
-                        <div className="checkbox-item">
-                            <span className={`checkbox ${collectionData.waste_types.pharmaceutical ? 'checked' : ''}`}></span>
-                            <span>مخلفات دوائية</span>
                         </div>
                     </div>
                 </div>
@@ -112,10 +104,18 @@ const PrintReceipt = () => {
                     <span className="info-label">عدد الأكياس:</span>
                     <span style={{ fontWeight: 'bold', color: '#1976d2' }}>{collectionData.bags_count}</span>
                 </div>
-                <div className="info-row" style={{ justifyContent: 'flex-start', gap: '8px', borderBottom: 'none', marginBottom: collectionData.notes ? '1mm' : '0' }}>
+                <div className="info-row" style={{ justifyContent: 'flex-start', gap: '8px', borderBottom: 'none', marginBottom: '1mm' }}>
                     <span className="info-label">الوزن الإجمالي:</span>
                     <span style={{ fontWeight: 'bold', color: '#1976d2' }}>{collectionData.total_weight} كجم</span>
                 </div>
+                {(collectionData.safety_box_bags > 0 || collectionData.safety_box_count > 0) && (
+                    <div className="info-row" style={{ justifyContent: 'flex-start', gap: '8px', borderBottom: 'none', marginBottom: '1mm', background: '#fff8e1', padding: '4px 8px', borderRadius: '4px' }}>
+                        <span className="info-label">📦 صناديق الأمانة:</span>
+                        <span style={{ fontWeight: 'bold', color: '#f57c00' }}>
+                            {collectionData.safety_box_bags || 0} كيس - {collectionData.safety_box_count || 0} صندوق
+                        </span>
+                    </div>
+                )}
                 {collectionData.notes && (
                     <div className="info-row" style={{ justifyContent: 'flex-start', gap: '8px', borderBottom: 'none' }}>
                         <span className="info-label">ملاحظات:</span>

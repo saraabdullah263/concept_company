@@ -6,12 +6,12 @@ const CollectionFormModal = ({ isOpen, onClose, stop, routeId, route, currentLoc
     // Form data
     const [formData, setFormData] = useState({
         wasteTypes: {
-            hazardous: false,
-            sharp: false,
-            pharmaceutical: false
+            hazardous: false
         },
         bagsCount: '',
         totalWeight: '',
+        safetyBoxBags: '',
+        safetyBoxCount: '',
         notes: ''
     });
 
@@ -114,6 +114,8 @@ const CollectionFormModal = ({ isOpen, onClose, stop, routeId, route, currentLoc
                 waste_types: formData.wasteTypes,
                 bags_count: parseInt(formData.bagsCount),
                 total_weight: parseFloat(formData.totalWeight),
+                safety_box_bags: formData.safetyBoxBags ? parseInt(formData.safetyBoxBags) : 0,
+                safety_box_count: formData.safetyBoxCount ? parseInt(formData.safetyBoxCount) : 0,
                 notes: formData.notes,
                 representative_signature: repSignature,
                 client_signature: clientSignature,
@@ -230,30 +232,6 @@ const CollectionFormModal = ({ isOpen, onClose, stop, routeId, route, currentLoc
                                 />
                                 <span className="text-gray-900">نفايات خطرة</span>
                             </label>
-                            <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={formData.wasteTypes.sharp}
-                                    onChange={(e) => setFormData({
-                                        ...formData,
-                                        wasteTypes: { ...formData.wasteTypes, sharp: e.target.checked }
-                                    })}
-                                    className="w-5 h-5 text-brand-600 rounded focus:ring-brand-500"
-                                />
-                                <span className="text-gray-900">أدوات حادة</span>
-                            </label>
-                            <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={formData.wasteTypes.pharmaceutical}
-                                    onChange={(e) => setFormData({
-                                        ...formData,
-                                        wasteTypes: { ...formData.wasteTypes, pharmaceutical: e.target.checked }
-                                    })}
-                                    className="w-5 h-5 text-brand-600 rounded focus:ring-brand-500"
-                                />
-                                <span className="text-gray-900">مخلفات دوائية</span>
-                            </label>
                         </div>
                     </div>
 
@@ -281,6 +259,33 @@ const CollectionFormModal = ({ isOpen, onClose, stop, routeId, route, currentLoc
                                 placeholder="0.00"
                                 required
                             />
+                        </div>
+                    </div>
+
+                    {/* Safety Box Section */}
+                    <div className="border-2 border-amber-200 bg-amber-50 rounded-lg p-4">
+                        <label className="block text-sm font-bold text-amber-800 mb-3">📦 صناديق الأمانة</label>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">عدد الأكياس</label>
+                                <input
+                                    type="number"
+                                    value={formData.safetyBoxBags}
+                                    onChange={(e) => setFormData({ ...formData, safetyBoxBags: e.target.value })}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                                    placeholder="0"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">عدد الصناديق</label>
+                                <input
+                                    type="number"
+                                    value={formData.safetyBoxCount}
+                                    onChange={(e) => setFormData({ ...formData, safetyBoxCount: e.target.value })}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                                    placeholder="0"
+                                />
+                            </div>
                         </div>
                     </div>
 

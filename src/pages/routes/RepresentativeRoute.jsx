@@ -115,14 +115,23 @@ const RepresentativeRoute = () => {
 
     const fetchDeliveries = async () => {
         try {
+            console.log('Fetching deliveries for route:', routeId);
             const { data, error } = await supabase
                 .from('incinerator_deliveries')
-                .select('*, incinerators(name)')
+                .select('*, incinerators:incinerator_id(name)')
                 .eq('route_id', routeId)
                 .order('delivery_order', { ascending: true });
 
-            if (!error && data) {
+            console.log('Deliveries result:', { data, error });
+
+            if (error) {
+                console.error('Error fetching deliveries:', error);
+                return;
+            }
+            
+            if (data) {
                 setDeliveries(data);
+                console.log('Deliveries set:', data.length);
             }
         } catch (error) {
             console.error('Error fetching deliveries:', error);
@@ -339,9 +348,17 @@ const RepresentativeRoute = () => {
                     <p className="text-gray-600 mb-1">
                         إجمالي المجمع: {stops.reduce((sum, s) => sum + (s.collection_details?.bags_count || 0), 0)} كيس
                     </p>
-                    <p className="text-gray-600 mb-4">
-                        الوزن الكلي: {route.total_weight_collected || 0} كجم
+                    {/* صناديق الأمانة */}
+                    {(stops.reduce((sum, s) => sum + (s.collection_details?.safety_box_bags || 0), 0) > 0 || 
+                      stops.reduce((sum, s) => sum + (s.collection_details?.safety_box_count || 0), 0) > 0) && (
+                        <p className="text-amber-700 mb-1 font-medium">
+                            📦 صناديق الأمانة: {stops.reduce((sum, s) => sum + (s.collection_details?.safety_box_bags || 0), 0)} كيس - {stops.reduce((sum, s) => sum + (s.collection_details?.safety_box_count || 0), 0)} صندوق
+                        </p>
+                    )}
+                    <p className="text-gray-600 mb-1">
+                        الوزن الكلي (شامل الأكياس والصناديق): {route.total_weight_collected || 0} كجم
                     </p>
+                    <div className="mb-4"></div>
                     <button
                         onClick={() => setShowDeliveryModal(true)}
                         className="bg-brand-600 text-white px-6 py-3 rounded-lg hover:bg-brand-700 font-medium inline-flex items-center gap-2"

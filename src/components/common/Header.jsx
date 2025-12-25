@@ -213,7 +213,7 @@ const Header = ({ toggleSidebar }) => {
 
                     {/* Notifications Dropdown */}
                     {showNotifications && (
-                        <div className="absolute left-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+                        <div className="fixed sm:absolute inset-x-4 sm:inset-x-auto sm:left-0 top-16 sm:top-auto sm:mt-2 w-auto sm:w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
                             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                                 <h3 className="font-bold text-gray-900">الإشعارات</h3>
                                 <div className="flex items-center gap-2">

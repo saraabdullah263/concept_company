@@ -85,7 +85,7 @@ const RouteDetails = () => {
         try {
             const { data, error } = await supabase
                 .from('incinerator_deliveries')
-                .select('*, incinerators(name)')
+                .select('*, incinerators:incinerator_id(name)')
                 .eq('route_id', id)
                 .order('delivery_order', { ascending: true });
 
@@ -152,7 +152,7 @@ const RouteDetails = () => {
                     <p className="text-sm text-gray-500 mt-1">ID: {route.id.slice(0, 8)}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    {route.route_stops && route.route_stops.length > 0 && deliveries.length > 0 && (
+                    {route.route_stops && route.route_stops.length > 0 && route.status === 'completed' && (
                         <PrintCompleteReceipt route={route} stops={route.route_stops} deliveries={deliveries} />
                     )}
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(route.status)}`}>
@@ -383,16 +383,6 @@ const RouteDetails = () => {
                                                                     نفايات خطرة
                                                                 </span>
                                                             )}
-                                                            {stop.collection_details.waste_types?.sharp && (
-                                                                <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full">
-                                                                    أدوات حادة
-                                                                </span>
-                                                            )}
-                                                            {stop.collection_details.waste_types?.pharmaceutical && (
-                                                                <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
-                                                                    مخلفات دوائية
-                                                                </span>
-                                                            )}
                                                         </div>
                                                     </div>
 
@@ -407,6 +397,23 @@ const RouteDetails = () => {
                                                             <span className="font-medium">{stop.collection_details.total_weight} كجم</span>
                                                         </div>
                                                     </div>
+
+                                                    {/* Safety Box */}
+                                                    {(stop.collection_details.safety_box_bags > 0 || stop.collection_details.safety_box_count > 0) && (
+                                                        <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                                            <p className="text-sm font-medium text-amber-800 mb-1">📦 صناديق الأمانة:</p>
+                                                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                                                <div>
+                                                                    <span className="text-amber-700">عدد الأكياس: </span>
+                                                                    <span className="font-medium text-amber-900">{stop.collection_details.safety_box_bags || 0}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-amber-700">عدد الصناديق: </span>
+                                                                    <span className="font-medium text-amber-900">{stop.collection_details.safety_box_count || 0}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
 
                                                     {/* Notes */}
                                                     {stop.collection_details.notes && (

@@ -19,6 +19,8 @@ const HospitalForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
             parent_entity: '',
             annual_visits_count: '',
             annual_contract_price: '',
+            single_visit_price: '',
+            monthly_contract_price: '',
             contact_person_name: '',
             contact_mobile: '',
             contact_landline: '',
@@ -154,6 +156,8 @@ const HospitalForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                     parent_entity: '',
                     annual_visits_count: '',
                     annual_contract_price: '',
+                    single_visit_price: '',
+                    monthly_contract_price: '',
                     contact_person_name: '',
                     contact_mobile: '',
                     contact_landline: '',
@@ -421,6 +425,36 @@ const HospitalForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                                     placeholder="مثال: 50000"
                                 />
                                 <p className="text-xs text-gray-500 mt-1">إجمالي قيمة التعاقد السنوي</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    سعر الزيارة الواحدة (ج.م)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    {...register('single_visit_price')}
+                                    className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                                    placeholder="مثال: 500"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">سعر الزيارة الواحدة للعميل</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    سعر التعاقد الشهري (ج.م)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    {...register('monthly_contract_price')}
+                                    className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                                    placeholder="مثال: 4000"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">قيمة التعاقد الشهري</p>
                             </div>
                         </div>
                     </div>
