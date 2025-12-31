@@ -15,6 +15,7 @@ import Accounting from './pages/accounting/Accounting';
 import Expenses from './pages/accounting/Expenses';
 import Invoices from './pages/accounting/Invoices';
 import InvoiceDetails from './pages/accounting/InvoiceDetails';
+import IncineratorAccounts from './pages/accounting/IncineratorAccounts';
 import Reports from './pages/reports/Reports';
 import Settings from './pages/settings/Settings';
 import Setup from './pages/Setup';
@@ -104,6 +105,11 @@ function App() {
             <Route path="invoices/:id" element={
               <RoleProtectedRoute allowedRoles={['admin', 'accountant']}>
                 <InvoiceDetails />
+              </RoleProtectedRoute>
+            } />
+            <Route path="incinerator-accounts" element={
+              <RoleProtectedRoute allowedRoles={['admin', 'accountant']}>
+                <IncineratorAccounts />
               </RoleProtectedRoute>
             } />
 

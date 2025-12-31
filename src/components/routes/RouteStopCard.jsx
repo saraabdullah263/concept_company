@@ -25,10 +25,11 @@ const RouteStopCard = ({ stop, stopNumber, routeId, route, isRouteInProgress, cu
     const canDepart = isArrived && hasCollectionData;
 
     const handleArrive = async () => {
+        // استخدام موقع افتراضي لو مش متاح
         if (!currentLocation) {
-            alert('الرجاء تفعيل خدمة الموقع');
-            return;
+            console.warn('Location not available, using default');
         }
+        const locationData = currentLocation || { lat: 0, lng: 0, accuracy: 0 };
 
         try {
             setIsArriving(true);
@@ -39,7 +40,7 @@ const RouteStopCard = ({ stop, stopNumber, routeId, route, isRouteInProgress, cu
                 .update({
                     status: 'arrived',
                     arrival_time: now,
-                    arrival_location: currentLocation
+                    arrival_location: locationData
                 })
                 .eq('id', stop.id);
 
@@ -51,7 +52,7 @@ const RouteStopCard = ({ stop, stopNumber, routeId, route, isRouteInProgress, cu
                 route_stop_id: stop.id,
                 event_type: 'arrived_hospital',
                 event_time: now,
-                location: currentLocation
+                location: locationData
             });
 
             await onUpdate();
@@ -66,10 +67,11 @@ const RouteStopCard = ({ stop, stopNumber, routeId, route, isRouteInProgress, cu
     };
 
     const handleDepart = async () => {
+        // استخدام موقع افتراضي لو مش متاح
         if (!currentLocation) {
-            alert('الرجاء تفعيل خدمة الموقع');
-            return;
+            console.warn('Location not available, using default');
         }
+        const locationData = currentLocation || { lat: 0, lng: 0, accuracy: 0 };
 
         try {
             setIsDeparting(true);
@@ -80,7 +82,7 @@ const RouteStopCard = ({ stop, stopNumber, routeId, route, isRouteInProgress, cu
                 .update({
                     status: 'collected',
                     departure_time: now,
-                    departure_location: currentLocation
+                    departure_location: locationData
                 })
                 .eq('id', stop.id);
 
@@ -92,7 +94,7 @@ const RouteStopCard = ({ stop, stopNumber, routeId, route, isRouteInProgress, cu
                 route_stop_id: stop.id,
                 event_type: 'departed_hospital',
                 event_time: now,
-                location: currentLocation
+                location: locationData
             });
 
             // Update route total weight
@@ -125,12 +127,18 @@ const RouteStopCard = ({ stop, stopNumber, routeId, route, isRouteInProgress, cu
             return;
         }
 
+        // إنشاء رقم إيصال مرتبط برقم العميل
+        const hospitalIdShort = stop.hospital_id ? stop.hospital_id.slice(-3).toUpperCase() : '000';
+        const sequenceNumber = Date.now().toString().slice(-5);
+        const receiptNumber = `EC-${new Date().getFullYear()}-${hospitalIdShort}-${sequenceNumber}`;
+
         // Prepare receipt data
         const receiptData = {
             route,
             stop,
             collectionData: stop.collection_details,
-            receiptNumber: `EC-${new Date().getFullYear()}-${String(stop.id).padStart(6, '0')}`
+            receiptNumber,
+            arrivalTime: stop.arrival_time // وقت الدخول للمحطة
         };
 
         // Store in sessionStorage

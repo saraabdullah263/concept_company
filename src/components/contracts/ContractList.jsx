@@ -1,9 +1,13 @@
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
-import { FileText, Calendar, Building, DollarSign, Activity, Edit, Trash2, ArrowRight } from 'lucide-react';
+import { FileText, Calendar, Building, DollarSign, Activity, Edit, Trash2, ArrowRight, Printer, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { generateNewContractPDF } from '../../services/pdfGenerator';
+import { supabase } from '../../services/supabase';
 
 const ContractList = ({ contracts, onEdit, onDelete }) => {
+    const [printingId, setPrintingId] = useState(null);
     const getStatusColor = (status) => {
         switch (status) {
             case 'active': return 'bg-green-100 text-green-800';
@@ -19,6 +23,55 @@ const ContractList = ({ contracts, onEdit, onDelete }) => {
             case 'expired': return 'منتهي';
             case 'terminated': return 'ملغي';
             default: return status;
+        }
+    };
+
+    const handlePrintContract = async (contract) => {
+        setPrintingId(contract.id);
+        try {
+            // جلب بيانات العميل الكاملة
+            const { data: hospital } = await supabase
+                .from('hospitals')
+                .select('*')
+                .eq('id', contract.hospital_id)
+                .single();
+
+            // تحويل البنود المخصصة
+            let customClauses = [];
+            if (contract.custom_clauses) {
+                try {
+                    customClauses = typeof contract.custom_clauses === 'string' 
+                        ? JSON.parse(contract.custom_clauses) 
+                        : contract.custom_clauses;
+                } catch {
+                    customClauses = [];
+                }
+            }
+
+            await generateNewContractPDF({
+                contractNumber: contract.contract_number,
+                contractDate: format(new Date(contract.start_date), 'yyyy/MM/dd'),
+                startDate: format(new Date(contract.start_date), 'yyyy/MM/dd'),
+                endDate: format(new Date(contract.end_date), 'yyyy/MM/dd'),
+                clientName: hospital?.name || contract.hospitals?.name || '',
+                clientActivity: contract.client_activity || hospital?.activity || '',
+                clientAddress: hospital?.address || hospital?.detailed_address || '',
+                commercialRegister: contract.commercial_register || hospital?.commercial_register || '',
+                taxNumber: contract.tax_number || hospital?.tax_number || '',
+                pricePerKg: contract.price_per_kg || '',
+                contractFees: contract.contract_fees || '0',
+                contractDuration: contract.contract_duration || 'سنة واحدة',
+                phoneNumbers: hospital?.contact_phone || hospital?.contact_mobile || '',
+                managerName: contract.manager_name || hospital?.manager_name || hospital?.contact_person_name || '',
+                minWeight: contract.min_weight || '15',
+                minPrice: contract.min_price || '',
+                customClauses: customClauses
+            });
+        } catch (error) {
+            console.error('Error printing contract:', error);
+            alert('حدث خطأ أثناء طباعة العقد');
+        } finally {
+            setPrintingId(null);
         }
     };
 
@@ -66,6 +119,18 @@ const ContractList = ({ contracts, onEdit, onDelete }) => {
                     </div>
 
                     <div className="flex gap-2">
+                        <button
+                            onClick={() => handlePrintContract(contract)}
+                            disabled={printingId === contract.id}
+                            className="flex-1 py-2 text-sm text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                            {printingId === contract.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Printer className="w-4 h-4" />
+                            )}
+                            طباعة
+                        </button>
                         <button
                             onClick={() => onEdit(contract)}
                             className="flex-1 py-2 text-sm text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors flex items-center justify-center gap-2"

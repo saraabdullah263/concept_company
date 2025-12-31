@@ -2,17 +2,60 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 import HospitalList from '../../components/contracts/HospitalList';
 import HospitalForm from '../../components/contracts/HospitalForm';
-import { Plus, Search, Loader2 } from 'lucide-react';
+import { Plus, Search, Loader2, X } from 'lucide-react';
 
 const Hospitals = () => {
     const [hospitals, setHospitals] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    
+    // Filter States
+    const [filterGovernorate, setFilterGovernorate] = useState('');
+    const [filterClientType, setFilterClientType] = useState('');
+    const [filterParentEntity, setFilterParentEntity] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+    const [parentEntities, setParentEntities] = useState([]);
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingHospital, setEditingHospital] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const egyptGovernorates = [
+        'القاهرة', 'الجيزة', 'الإسكندرية', 'الدقهلية', 'البحيرة', 'الفيوم', 'الغربية', 'الإسماعيلية',
+        'المنوفية', 'المنيا', 'القليوبية', 'الوادي الجديد', 'الشرقية', 'أسيوط', 'سوهاج', 'قنا',
+        'أسوان', 'الأقصر', 'البحر الأحمر', 'كفر الشيخ', 'مطروح', 'بني سويف', 'دمياط',
+        'بورسعيد', 'السويس', 'شمال سيناء', 'جنوب سيناء'
+    ];
+
+    const clientTypes = [
+        { value: 'hospital', label: 'مستشفى' },
+        { value: 'clinic', label: 'عيادة' },
+        { value: 'lab', label: 'معمل' },
+        { value: 'medical_center', label: 'مركز طبي' }
+    ];
+
+    // Fetch unique parent entities for filter dropdown
+    const fetchParentEntities = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('hospitals')
+                .select('parent_entity')
+                .not('parent_entity', 'is', null)
+                .not('parent_entity', 'eq', '');
+            
+            if (error) throw error;
+            
+            const uniqueEntities = [...new Set(data?.map(h => h.parent_entity).filter(Boolean))];
+            setParentEntities(uniqueEntities.sort());
+        } catch (error) {
+            console.error('Error fetching parent entities:', error);
+        }
+    };
+
+    useEffect(() => {
+        fetchParentEntities();
+    }, []);
 
     const fetchHospitals = async () => {
         try {
@@ -27,6 +70,20 @@ const Hospitals = () => {
 
             if (searchTerm) {
                 query = query.or(`name.ilike.%${searchTerm}%,governorate.ilike.%${searchTerm}%,city.ilike.%${searchTerm}%`);
+            }
+
+            // Apply filters
+            if (filterGovernorate) {
+                query = query.eq('governorate', filterGovernorate);
+            }
+            if (filterClientType) {
+                query = query.eq('client_type', filterClientType);
+            }
+            if (filterParentEntity) {
+                query = query.eq('parent_entity', filterParentEntity);
+            }
+            if (filterStatus !== '') {
+                query = query.eq('is_active', filterStatus === 'active');
             }
 
             const { data, error } = await query;
@@ -49,7 +106,16 @@ const Hospitals = () => {
 
     useEffect(() => {
         fetchHospitals();
-    }, [searchTerm]);
+    }, [searchTerm, filterGovernorate, filterClientType, filterParentEntity, filterStatus]);
+
+    const clearFilters = () => {
+        setFilterGovernorate('');
+        setFilterClientType('');
+        setFilterParentEntity('');
+        setFilterStatus('');
+    };
+
+    const activeFiltersCount = [filterGovernorate, filterClientType, filterParentEntity, filterStatus].filter(Boolean).length;
 
     const handleCreate = () => {
         setEditingHospital(null);
@@ -57,7 +123,12 @@ const Hospitals = () => {
     };
 
     const handleEdit = (hospital) => {
-        setEditingHospital(hospital);
+        // تحويل visit_days من string لـ array
+        const hospitalData = {
+            ...hospital,
+            visit_days: hospital.visit_days ? hospital.visit_days.split(',') : []
+        };
+        setEditingHospital(hospitalData);
         setIsModalOpen(true);
     };
 
@@ -124,6 +195,10 @@ const Hospitals = () => {
                 contact_landline: data.contact_landline,
                 contact_email: data.contact_email,
                 is_active: data.is_active,
+                // مواعيد الزيارة للعيادات والمراكز الطبية
+                visit_hours_from: data.visit_hours_from || null,
+                visit_hours_to: data.visit_hours_to || null,
+                visit_days: Array.isArray(data.visit_days) ? data.visit_days.join(',') : (data.visit_days || null),
                 // Keep old fields for backward compatibility
                 address: data.detailed_address || data.address,
                 contact_person: data.contact_person_name || data.contact_person,
@@ -173,8 +248,9 @@ const Hospitals = () => {
             </div>
 
             {/* Search & Filter */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-4">
-                <div className="relative flex-1 max-w-md">
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 space-y-4">
+                {/* Search */}
+                <div className="relative">
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
                         type="text"
@@ -184,6 +260,69 @@ const Hospitals = () => {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
+
+                {/* Filter Dropdowns */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {/* Governorate Filter */}
+                    <select
+                        value={filterGovernorate}
+                        onChange={(e) => setFilterGovernorate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white"
+                    >
+                        <option value="">كل المحافظات</option>
+                        {egyptGovernorates.map(gov => (
+                            <option key={gov} value={gov}>{gov}</option>
+                        ))}
+                    </select>
+
+                    {/* Client Type Filter */}
+                    <select
+                        value={filterClientType}
+                        onChange={(e) => setFilterClientType(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white"
+                    >
+                        <option value="">كل الأنواع</option>
+                        {clientTypes.map(type => (
+                            <option key={type.value} value={type.value}>{type.label}</option>
+                        ))}
+                    </select>
+
+                    {/* Parent Entity Filter */}
+                    <select
+                        value={filterParentEntity}
+                        onChange={(e) => setFilterParentEntity(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white"
+                    >
+                        <option value="">كل الجهات التابعة</option>
+                        {parentEntities.map(entity => (
+                            <option key={entity} value={entity}>{entity}</option>
+                        ))}
+                    </select>
+
+                    {/* Status Filter */}
+                    <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none bg-white"
+                    >
+                        <option value="">كل الحالات</option>
+                        <option value="active">نشط</option>
+                        <option value="inactive">غير نشط</option>
+                    </select>
+                </div>
+
+                {/* Clear Filters Button */}
+                {activeFiltersCount > 0 && (
+                    <div className="flex justify-end">
+                        <button
+                            onClick={clearFilters}
+                            className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700 transition-colors"
+                        >
+                            <X className="w-4 h-4" />
+                            مسح الفلاتر ({activeFiltersCount})
+                        </button>
+                    </div>
+                )}
             </div>
 
             {loading ? (

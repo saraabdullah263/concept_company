@@ -13,6 +13,14 @@ const RouteList = ({ routes, onEdit, onDelete }) => {
         }
     };
 
+    const getRouteTypeLabel = (type) => {
+        return type === 'maintenance' ? 'صيانة' : 'جمع';
+    };
+
+    const getRouteTypeColor = (type) => {
+        return type === 'maintenance' ? 'bg-orange-100 text-orange-800' : 'bg-brand-100 text-brand-800';
+    };
+
     const traverseStatus = {
         'pending': 'معلقة',
         'in_progress': 'جارية',
@@ -31,6 +39,9 @@ const RouteList = ({ routes, onEdit, onDelete }) => {
                             <div className="flex items-center gap-3">
                                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(route.status)}`}>
                                     {traverseStatus[route.status] || route.status}
+                                </span>
+                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getRouteTypeColor(route.route_type)}`}>
+                                    {getRouteTypeLabel(route.route_type)}
                                 </span>
                                 <h3 className="text-lg font-bold text-gray-900">
                                     {route.route_name || `خط سير #${route.id.slice(0, 8)}`}
@@ -53,17 +64,23 @@ const RouteList = ({ routes, onEdit, onDelete }) => {
                             </div>
                         </div>
 
-                        {/* Stats */}
+                        {/* Stats - فقط لرحلات الجمع */}
+                        {route.route_type !== 'maintenance' && (
                         <div className="flex items-center gap-6 bg-gray-50 px-4 py-2 rounded-lg">
                             <div className="text-center">
                                 <p className="text-xs text-gray-500">المحطات</p>
                                 <p className="font-bold text-gray-900">{route.stop_count || 0}</p>
                             </div>
                             <div className="text-center border-r border-gray-200 pr-6">
-                                <p className="text-xs text-gray-500">الوزن (كم)</p>
-                                <p className="font-bold text-gray-900">{route.total_weight_collected || 0}</p>
+                                <p className="text-xs text-gray-500">الوزن (كجم)</p>
+                                <p className="font-bold text-gray-900">
+                                    {route.route_stops ? 
+                                        (route.route_stops.reduce((sum, s) => sum + (parseFloat(s.collection_details?.total_weight) || 0) + (parseFloat(s.collection_details?.safety_box_weight) || 0), 0)).toFixed(0) 
+                                        : (route.total_weight_collected || 0)}
+                                </p>
                             </div>
                         </div>
+                        )}
 
                         {/* Actions */}
                         <div className="flex items-center gap-2">

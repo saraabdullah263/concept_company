@@ -69,6 +69,7 @@ const Incinerators = () => {
                 location: data.location,
                 capacity_per_day: data.capacity_per_day,
                 cost_per_kg: data.cost_per_kg,
+                insurance_amount: data.insurance_amount || 0,
                 is_active: data.is_active
             };
 
@@ -169,6 +170,12 @@ const Incinerators = () => {
                                     <span className="text-gray-500">التكلفة للكيلو:</span>
                                     <span className="font-medium text-gray-900">
                                         {incinerator.cost_per_kg?.toLocaleString() || '-'} ج.م
+                                    </span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">مبلغ التأمين:</span>
+                                    <span className="font-medium text-gray-900">
+                                        {incinerator.insurance_amount?.toLocaleString() || '0'} ج.م
                                     </span>
                                 </div>
                             </div>

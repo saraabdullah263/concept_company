@@ -13,8 +13,8 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
     const [delivery, setDelivery] = useState({
         bags_count: 0,
         weight_delivered: 0,
-        safety_box_bags: 0,
         safety_box_count: 0,
+        safety_box_weight: 0,
         receiver_signature: null,
         photo_proof: null,
         notes: ''
@@ -29,10 +29,10 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
             sum + (stop.collection_details?.bags_count || 0), 0) || 0,
         weight: route?.route_stops?.reduce((sum, stop) => 
             sum + (parseFloat(stop.collection_details?.total_weight) || 0), 0) || 0,
-        safetyBoxBags: route?.route_stops?.reduce((sum, stop) => 
-            sum + (stop.collection_details?.safety_box_bags || 0), 0) || 0,
         safetyBoxCount: route?.route_stops?.reduce((sum, stop) => 
-            sum + (stop.collection_details?.safety_box_count || 0), 0) || 0
+            sum + (stop.collection_details?.safety_box_count || 0), 0) || 0,
+        safetyBoxWeight: route?.route_stops?.reduce((sum, stop) => 
+            sum + (parseFloat(stop.collection_details?.safety_box_weight) || 0), 0) || 0
     };
 
     useEffect(() => {
@@ -49,16 +49,16 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
                 sum + (stop.collection_details?.bags_count || 0), 0) || 0;
             const totalWeight = route?.route_stops?.reduce((sum, stop) => 
                 sum + (parseFloat(stop.collection_details?.total_weight) || 0), 0) || 0;
-            const totalSafetyBoxBags = route?.route_stops?.reduce((sum, stop) => 
-                sum + (stop.collection_details?.safety_box_bags || 0), 0) || 0;
             const totalSafetyBoxCount = route?.route_stops?.reduce((sum, stop) => 
                 sum + (stop.collection_details?.safety_box_count || 0), 0) || 0;
+            const totalSafetyBoxWeight = route?.route_stops?.reduce((sum, stop) => 
+                sum + (parseFloat(stop.collection_details?.safety_box_weight) || 0), 0) || 0;
             
             setDelivery({
                 bags_count: totalBags,
                 weight_delivered: totalWeight,
-                safety_box_bags: totalSafetyBoxBags,
                 safety_box_count: totalSafetyBoxCount,
+                safety_box_weight: totalSafetyBoxWeight,
                 receiver_signature: null,
                 photo_proof: null,
                 notes: ''
@@ -171,16 +171,23 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
             if (wantsToChange) {
                 notesText = `سبب تغيير المحرقة: ${changeReason}\n${notesText}`;
             }
-            if (delivery.safety_box_bags > 0 || delivery.safety_box_count > 0) {
-                notesText += `\nصناديق الأمانة: ${delivery.safety_box_bags || 0} كيس - ${delivery.safety_box_count || 0} صندوق`;
+            if (delivery.safety_box_count > 0 || delivery.safety_box_weight > 0) {
+                notesText += `\nسيفتي بوكس Safety Box: ${delivery.safety_box_count || 0} صندوق - ${delivery.safety_box_weight || 0} كجم`;
             }
 
             // حفظ التسليم
+            // جلب سعر الكيلو من المحرقة المختارة
+            const selectedIncinerator = incinerators.find(inc => inc.id === finalIncineratorId) || assignedIncinerator;
+            const costPerKg = selectedIncinerator?.cost_per_kg || 0;
+            const totalCost = parseFloat(delivery.weight_delivered) * costPerKg;
+
             const deliveryData = {
                 route_id: route.id,
                 incinerator_id: finalIncineratorId,
                 bags_count: parseInt(delivery.bags_count),
                 weight_delivered: parseFloat(delivery.weight_delivered),
+                cost_per_kg: costPerKg,
+                total_cost: totalCost,
                 delivery_order: 1,
                 notes: notesText.trim() || null,
                 delivery_time: new Date().toISOString()
@@ -209,9 +216,13 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
 
             console.log('Delivery saved:', insertedData);
 
+            // حساب الوزن الكلي (أكياس + سيفتي بوكس)
+            const grandTotalWeight = totalCollected.weight + (totalCollected.safetyBoxWeight || 0);
+            const deliveredTotalWeight = parseFloat(delivery.weight_delivered) + (totalCollected.safetyBoxWeight || 0);
+
             // حساب المتبقي
             const remainingBags = totalCollected.bags - parseInt(delivery.bags_count);
-            const remainingWeight = totalCollected.weight - parseFloat(delivery.weight_delivered);
+            const remainingWeight = grandTotalWeight - deliveredTotalWeight;
 
             // تحديث الرحلة
             const { error: routeError } = await supabase
@@ -219,7 +230,7 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
                 .update({
                     remaining_weight: remainingWeight,
                     remaining_bags: remainingBags,
-                    total_weight_collected: totalCollected.weight,
+                    total_weight_collected: grandTotalWeight,
                     status: 'completed',
                     end_time: new Date().toISOString(),
                     updated_at: new Date().toISOString()
@@ -265,28 +276,35 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
                                 <span className="font-bold text-blue-900">{totalCollected.bags}</span>
                             </div>
                             <div>
-                                <span className="text-blue-700">الوزن (شامل الكل): </span>
+                                <span className="text-blue-700">وزن الأكياس: </span>
                                 <span className="font-bold text-blue-900">{totalCollected.weight.toFixed(2)} كجم</span>
                             </div>
                         </div>
-                        {/* صناديق الأمانة */}
-                        {(totalCollected.safetyBoxBags > 0 || totalCollected.safetyBoxCount > 0) && (
+                        {/* سيفتي بوكس */}
+                        {(totalCollected.safetyBoxCount > 0 || totalCollected.safetyBoxWeight > 0) && (
                             <div className="mt-3 pt-3 border-t border-blue-200">
                                 <div className="flex items-center gap-2 text-amber-700 mb-2">
-                                    <span className="font-bold">📦 صناديق الأمانة:</span>
+                                    <span className="font-bold">📦 سيفتي بوكس Safety Box:</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4 text-sm">
-                                    <div>
-                                        <span className="text-amber-600">عدد الأكياس: </span>
-                                        <span className="font-bold text-amber-800">{totalCollected.safetyBoxBags}</span>
-                                    </div>
                                     <div>
                                         <span className="text-amber-600">عدد الصناديق: </span>
                                         <span className="font-bold text-amber-800">{totalCollected.safetyBoxCount}</span>
                                     </div>
+                                    <div>
+                                        <span className="text-amber-600">الوزن: </span>
+                                        <span className="font-bold text-amber-800">{totalCollected.safetyBoxWeight?.toFixed(2) || 0} كجم</span>
+                                    </div>
                                 </div>
                             </div>
                         )}
+                        {/* الوزن الكلي */}
+                        <div className="mt-3 pt-3 border-t border-blue-200 text-center">
+                            <span className="text-blue-800 font-bold">⚖️ الوزن الكلي: </span>
+                            <span className="font-bold text-blue-900 text-lg">
+                                {(totalCollected.weight + (totalCollected.safetyBoxWeight || 0)).toFixed(2)} كجم
+                            </span>
+                        </div>
                     </div>
 
                     {/* المحرقة المحددة */}
@@ -412,24 +430,11 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
                         </div>
                     </div>
 
-                    {/* صناديق الأمانة */}
-                    {(totalCollected.safetyBoxBags > 0 || totalCollected.safetyBoxCount > 0) && (
+                    {/* سيفتي بوكس */}
+                    {(totalCollected.safetyBoxCount > 0 || totalCollected.safetyBoxWeight > 0) && (
                         <div className="border-2 border-amber-300 bg-amber-50 rounded-lg p-4">
-                            <label className="block text-sm font-bold text-amber-800 mb-3">📦 صناديق الأمانة المسلمة</label>
+                            <label className="block text-sm font-bold text-amber-800 mb-3">📦 سيفتي بوكس Safety Box المسلمة</label>
                             <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-amber-700 mb-2">
-                                        عدد الأكياس
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        max={totalCollected.safetyBoxBags}
-                                        value={delivery.safety_box_bags}
-                                        onChange={(e) => updateDelivery('safety_box_bags', e.target.value)}
-                                        className="w-full px-4 py-3 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 text-center text-lg font-bold bg-white"
-                                    />
-                                </div>
                                 <div>
                                     <label className="block text-sm font-medium text-amber-700 mb-2">
                                         عدد الصناديق
@@ -440,6 +445,20 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
                                         max={totalCollected.safetyBoxCount}
                                         value={delivery.safety_box_count}
                                         onChange={(e) => updateDelivery('safety_box_count', e.target.value)}
+                                        className="w-full px-4 py-3 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 text-center text-lg font-bold bg-white"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-amber-700 mb-2">
+                                        وزن الصناديق (كجم)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.1"
+                                        min="0"
+                                        max={totalCollected.safetyBoxWeight}
+                                        value={delivery.safety_box_weight}
+                                        onChange={(e) => updateDelivery('safety_box_weight', e.target.value)}
                                         className="w-full px-4 py-3 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 text-center text-lg font-bold bg-white"
                                     />
                                 </div>

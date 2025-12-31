@@ -10,8 +10,8 @@ const CollectionFormModal = ({ isOpen, onClose, stop, routeId, route, currentLoc
         },
         bagsCount: '',
         totalWeight: '',
-        safetyBoxBags: '',
         safetyBoxCount: '',
+        safetyBoxWeight: '',
         notes: ''
     });
 
@@ -96,10 +96,12 @@ const CollectionFormModal = ({ isOpen, onClose, stop, routeId, route, currentLoc
             alert('الرجاء اختيار نوع النفايات');
             return;
         }
+        
+        // استخدام موقع افتراضي لو مش متاح
         if (!currentLocation) {
-            alert('الرجاء تفعيل خدمة الموقع');
-            return;
+            console.warn('Location not available, using default');
         }
+        const locationData = currentLocation || { lat: 0, lng: 0, accuracy: 0 };
 
         try {
             setIsSaving(true);
@@ -114,26 +116,29 @@ const CollectionFormModal = ({ isOpen, onClose, stop, routeId, route, currentLoc
                 waste_types: formData.wasteTypes,
                 bags_count: parseInt(formData.bagsCount),
                 total_weight: parseFloat(formData.totalWeight),
-                safety_box_bags: formData.safetyBoxBags ? parseInt(formData.safetyBoxBags) : 0,
                 safety_box_count: formData.safetyBoxCount ? parseInt(formData.safetyBoxCount) : 0,
+                safety_box_weight: formData.safetyBoxWeight ? parseFloat(formData.safetyBoxWeight) : 0,
                 notes: formData.notes,
                 representative_signature: repSignature,
                 client_signature: clientSignature,
                 collection_time: now,
-                collection_location: currentLocation
+                collection_location: locationData
             };
+
+            // حساب الوزن الكلي (وزن الأكياس + وزن السيفتي بوكس)
+            const grandTotalWeight = parseFloat(formData.totalWeight) + (formData.safetyBoxWeight ? parseFloat(formData.safetyBoxWeight) : 0);
 
             // Update route stop
             const { error: updateError } = await supabase
                 .from('route_stops')
                 .update({
-                    weight_collected: parseFloat(formData.totalWeight),
+                    weight_collected: grandTotalWeight,
                     hospital_signature: clientSignature ? { url: clientSignature } : null,
                     collection_details: collectionData,
                     weight_entry_time: now,
                     signature_time: clientSignature ? now : null,
-                    weight_entry_location: currentLocation,
-                    signature_location: clientSignature ? currentLocation : null
+                    weight_entry_location: locationData,
+                    signature_location: clientSignature ? locationData : null
                 })
                 .eq('id', stop.id);
 
@@ -145,16 +150,23 @@ const CollectionFormModal = ({ isOpen, onClose, stop, routeId, route, currentLoc
                 route_stop_id: stop.id,
                 event_type: 'collection_completed',
                 event_time: now,
-                location: currentLocation,
+                location: locationData,
                 data: collectionData
             });
+
+            // إنشاء رقم إيصال مرتبط برقم العميل
+            // Format: EC-YYYY-XXX-NNNNN (XXX = آخر 3 أرقام من رقم العميل، NNNNN = رقم تسلسلي)
+            const hospitalIdShort = stop.hospital_id ? stop.hospital_id.slice(-3).toUpperCase() : '000';
+            const sequenceNumber = Date.now().toString().slice(-5);
+            const receiptNumber = `EC-${new Date().getFullYear()}-${hospitalIdShort}-${sequenceNumber}`;
 
             // Store receipt data for printing
             const receiptData = {
                 route,
                 stop,
                 collectionData,
-                receiptNumber: `EC-${new Date().getFullYear()}-${String(stop.id).padStart(6, '0')}`
+                receiptNumber,
+                arrivalTime: stop.arrival_time // وقت الدخول للمحطة
             };
             sessionStorage.setItem('printReceipt', JSON.stringify(receiptData));
 
@@ -264,18 +276,8 @@ const CollectionFormModal = ({ isOpen, onClose, stop, routeId, route, currentLoc
 
                     {/* Safety Box Section */}
                     <div className="border-2 border-amber-200 bg-amber-50 rounded-lg p-4">
-                        <label className="block text-sm font-bold text-amber-800 mb-3">📦 صناديق الأمانة</label>
+                        <label className="block text-sm font-bold text-amber-800 mb-3">📦 سيفتي بوكس Safety Box</label>
                         <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">عدد الأكياس</label>
-                                <input
-                                    type="number"
-                                    value={formData.safetyBoxBags}
-                                    onChange={(e) => setFormData({ ...formData, safetyBoxBags: e.target.value })}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
-                                    placeholder="0"
-                                />
-                            </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">عدد الصناديق</label>
                                 <input
@@ -284,6 +286,17 @@ const CollectionFormModal = ({ isOpen, onClose, stop, routeId, route, currentLoc
                                     onChange={(e) => setFormData({ ...formData, safetyBoxCount: e.target.value })}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
                                     placeholder="0"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">وزن الصناديق (كجم)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={formData.safetyBoxWeight}
+                                    onChange={(e) => setFormData({ ...formData, safetyBoxWeight: e.target.value })}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                                    placeholder="0.00"
                                 />
                             </div>
                         </div>

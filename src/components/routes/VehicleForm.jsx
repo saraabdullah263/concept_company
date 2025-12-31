@@ -1,5 +1,5 @@
 import { useForm } from 'react-hook-form';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, X, AlertTriangle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '../../services/supabase';
 import clsx from 'clsx';
@@ -7,11 +7,14 @@ import clsx from 'clsx';
 const VehicleForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) => {
     const [representatives, setRepresentatives] = useState([]);
     const [loadingReps, setLoadingReps] = useState(false);
-    const { register, handleSubmit, reset, formState: { errors } } = useForm();
+    const [selectedRepLicense, setSelectedRepLicense] = useState(null);
+    const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
+    
+    const watchedRepId = watch('owner_representative_id');
 
     useEffect(() => {
         if (isOpen) {
-            // Fetch representatives
+            // Fetch representatives with license info
             const fetchRepresentatives = async () => {
                 setLoadingReps(true);
                 try {
@@ -19,10 +22,12 @@ const VehicleForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) =
                         .from('representatives')
                         .select(`
                             id,
+                            license_expiry_date,
                             users!user_id (
                                 full_name
                             )
                         `)
+                        .eq('is_available', true)
                         .order('created_at', { ascending: false });
 
                     if (error) throw error;
@@ -46,6 +51,16 @@ const VehicleForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) =
             });
         }
     }, [isOpen, initialData, reset]);
+
+    // تحديث معلومات رخصة المندوب المختار
+    useEffect(() => {
+        if (watchedRepId) {
+            const rep = representatives.find(r => r.id === watchedRepId);
+            setSelectedRepLicense(rep?.license_expiry_date || null);
+        } else {
+            setSelectedRepLicense(null);
+        }
+    }, [watchedRepId, representatives]);
 
     if (!isOpen) return null;
 
@@ -111,6 +126,20 @@ const VehicleForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) =
                             ))}
                         </select>
                         {loadingReps && <p className="text-xs text-gray-500 mt-1">جاري تحميل المندوبين...</p>}
+                        
+                        {/* عرض تاريخ انتهاء رخصة المندوب */}
+                        {selectedRepLicense && (
+                            <p className={clsx(
+                                "text-xs mt-1 flex items-center gap-1",
+                                new Date(selectedRepLicense) < new Date() ? "text-red-600" :
+                                new Date(selectedRepLicense) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) ? "text-amber-600" :
+                                "text-gray-500"
+                            )}>
+                                {new Date(selectedRepLicense) < new Date() && <AlertTriangle className="w-3 h-3" />}
+                                رخصة المندوب تنتهي: {new Date(selectedRepLicense).toLocaleDateString('ar-EG')}
+                                {new Date(selectedRepLicense) < new Date() && " (منتهية!)"}
+                            </p>
+                        )}
                     </div>
 
                     <div>

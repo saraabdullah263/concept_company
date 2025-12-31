@@ -30,7 +30,7 @@ const InvoiceList = ({ invoices, onEdit, onDelete }) => {
                 <thead className="bg-gray-50 border-b border-gray-100">
                     <tr>
                         <th className="px-6 py-4 text-sm font-semibold text-gray-900">رقم الفاتورة</th>
-                        <th className="px-6 py-4 text-sm font-semibold text-gray-900">العميل (المستشفى)</th>
+                        <th className="px-6 py-4 text-sm font-semibold text-gray-900">العميل</th>
                         <th className="px-6 py-4 text-sm font-semibold text-gray-900">المبلغ الإجمالي</th>
                         <th className="px-6 py-4 text-sm font-semibold text-gray-900">تاريخ الاستحقاق</th>
                         <th className="px-6 py-4 text-sm font-semibold text-gray-900">الحالة</th>

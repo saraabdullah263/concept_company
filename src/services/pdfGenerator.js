@@ -19,7 +19,11 @@ export const generateNewContractPDF = async (contractData) => {
         endDate,
         minWeight = '15',
         minPrice = '',
+        customClauses = [],
     } = contractData;
+
+    // Debug: تحقق من البنود المخصصة
+    console.log('Custom Clauses received:', customClauses);
 
     // Get the logo as base64
     const logoUrl = await getCachedLogoBase64() || `${window.location.origin}/logo.png`;
@@ -35,6 +39,12 @@ export const generateNewContractPDF = async (contractData) => {
             @page { 
                 size: A4; 
                 margin: 1.2cm 1.5cm;
+                @bottom-center {
+                    content: counter(page) " من " counter(pages);
+                    font-family: 'Cairo', sans-serif;
+                    font-size: 10px;
+                    color: #666;
+                }
             }
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
@@ -46,7 +56,35 @@ export const generateNewContractPDF = async (contractData) => {
                 background: white;
                 color: #1a1a1a;
                 font-size: 12.5px;
+                counter-reset: page;
             }
+            
+            /* Watermark - العلامة المائية */
+            body::before {
+                content: 'Concept';
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-45deg);
+                font-size: 120px;
+                font-weight: 700;
+                color: rgba(13, 79, 139, 0.06);
+                z-index: -1;
+                pointer-events: none;
+                font-family: 'Arial', sans-serif;
+                letter-spacing: 15px;
+            }
+            
+            /* Page Numbers - ترقيم الصفحات */
+            .page-number {
+                position: fixed;
+                bottom: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 11px;
+                color: #666;
+            }
+            
             /* Header Styles */
             .header {
                 display: flex;
@@ -260,6 +298,21 @@ export const generateNewContractPDF = async (contractData) => {
                     -webkit-print-color-adjust: exact;
                     print-color-adjust: exact;
                 }
+                
+                /* Watermark for print */
+                body::before {
+                    content: 'Concept';
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%) rotate(-45deg);
+                    font-size: 120px;
+                    font-weight: 700;
+                    color: rgba(13, 79, 139, 0.05);
+                    z-index: -1;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
                 .party-section, .band-title, .section-title, .signature-box {
                     -webkit-print-color-adjust: exact;
                     print-color-adjust: exact;
@@ -281,6 +334,10 @@ export const generateNewContractPDF = async (contractData) => {
         <!-- Contract Title -->
         <div class="contract-title">عقـــــد تقديم خدمات</div>
         <div class="contract-subtitle">النقل والتخلص الآمن من النفايات الطبية الخطرة</div>
+        <div style="text-align: center; margin: 10px 0 15px; padding: 8px 20px; background: #e8f4fc; border-radius: 8px; display: inline-block; width: 100%;">
+            <span style="font-weight: 700; color: #0d4f8b; font-size: 14px;">رقم العقد: </span>
+            <span style="font-weight: 700; color: #333; font-size: 16px; background: #fff; padding: 3px 15px; border-radius: 4px; border: 1px solid #0d4f8b;">${contractNumber || '---'}</span>
+        </div>
 
         <!-- Intro -->
         <p class="intro">
@@ -291,7 +348,7 @@ export const generateNewContractPDF = async (contractData) => {
         <div class="party-section">
             <div class="party-title">( الطرف الأول – مُؤدي الخدمة )</div>
             <div class="party-info">
-                <p><strong>اسم المنشأة:</strong> شركة كونسبت لتوريد المستلزمات الطبية ومستلزمات غسيل الكلى.</p>
+                <p><strong>اسم المنشأة:</strong> شركة كونسبت</p>
                 <p><strong>الكيان القانوني:</strong> (منشأة فردية) - <strong>التخصص / النشاط:</strong> جمع ونقل النفايات الطبية.</p>
                 <p><strong>المقر الرئيسي:</strong> 16 شارع الهدايا – من شارع كعبيش – فيصل – محافظة الجيزة</p>
                 <p><strong>مقر الفرع:</strong> شقة بالدور الأرضي - خلف شركة الكهرباء – باسوس – مركز القناطر الخيرية – محافظة القليوبية.</p>
@@ -418,6 +475,16 @@ export const generateNewContractPDF = async (contractData) => {
             تحـرر هذا العقد باللغة العربية من نسختين أصليتين، بيد كل طرف نسخة أصلية مكونة من أربع صفحات تحتوي كل نسخة على خمسة عشر بنداً، وقد تسلم كل طرف نسخته كاملة بعد استيفاء توقيعها من الطرف الأخر لتنفيذ ما ورد بها من التزامات وللعمل بموجبها عند اللزوم.
         </div>
 
+        ${(customClauses && Array.isArray(customClauses) && customClauses.length > 0) ? 
+        `<div style="margin-top: 25px; padding-top: 15px; border-top: 2px solid #0d4f8b;">
+            <div class="section-title">بنود إضافية خاصة بهذا العقد</div>
+            ${customClauses.map((clause, index) => 
+            `<div class="band-title">بند إضافي (${index + 1}): ${clause.title || 'بند مخصص'}</div>
+            <div class="section-content">${clause.content || ''}</div>`
+            ).join('')}
+        </div>` 
+        : '<!-- لا توجد بنود مخصصة -->'}
+
         <!-- Signatures -->
         <div class="signatures">
             <div class="signature-box">
@@ -442,6 +509,19 @@ export const generateNewContractPDF = async (contractData) => {
                 <div class="signature-line">التوقيع والختم</div>
             </div>
         </div>
+        
+        <!-- Footer with page info -->
+        <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; text-align: center; font-size: 10px; color: #666;">
+            <p>عقد رقم: ${contractNumber || '---'} | شركة كونسبت للخدمات البيئية | Concept Eco Care</p>
+        </div>
+        
+        <script>
+            // ترقيم الصفحات عند الطباعة
+            window.onload = function() {
+                var totalPages = Math.ceil(document.body.scrollHeight / 1123); // A4 height in pixels approx
+                console.log('Total pages estimate:', totalPages);
+            }
+        </script>
     </body>
     </html>
     `;

@@ -139,11 +139,11 @@ const RepresentativeRoute = () => {
     };
 
     const handleStartRoute = async () => {
+        // استخدام موقع افتراضي لو مش متاح
         if (!currentLocation) {
-            alert('الرجاء تفعيل خدمة الموقع');
-            getCurrentLocation();
-            return;
+            console.warn('Location not available, using default');
         }
+        const locationData = currentLocation || { lat: 0, lng: 0, accuracy: 0 };
 
         try {
             setIsStarting(true);
@@ -156,7 +156,7 @@ const RepresentativeRoute = () => {
                 .update({
                     status: 'in_progress',
                     start_time: now,
-                    start_location: currentLocation
+                    start_location: locationData
                 })
                 .eq('id', routeId);
 
@@ -167,7 +167,7 @@ const RepresentativeRoute = () => {
                 route_id: routeId,
                 event_type: 'route_started',
                 event_time: now,
-                location: currentLocation
+                location: locationData
             });
 
             await fetchRouteDetails();
@@ -181,11 +181,50 @@ const RepresentativeRoute = () => {
         }
     };
 
-    const handleCompleteRoute = async (finalWeight) => {
-        if (!currentLocation) {
-            alert('الرجاء تفعيل خدمة الموقع');
-            return;
+    // تأكيد استلام مهمة الصيانة
+    const handleAcceptMaintenance = async () => {
+        try {
+            setIsStarting(true);
+
+            const now = new Date().toISOString();
+
+            // تحديث الرحلة لتصبح مكتملة مباشرة
+            const { error: routeError } = await supabase
+                .from('routes')
+                .update({
+                    status: 'completed',
+                    start_time: now,
+                    end_time: now
+                })
+                .eq('id', routeId);
+
+            if (routeError) throw routeError;
+
+            // تسجيل الحدث
+            await supabase.from('route_tracking_logs').insert({
+                route_id: routeId,
+                event_type: 'maintenance_accepted',
+                event_time: now,
+                data: { message: 'تم قبول مهمة الصيانة' }
+            });
+
+            await fetchRouteDetails();
+            alert('تم تأكيد استلام مهمة الصيانة بنجاح');
+
+        } catch (error) {
+            console.error('Error accepting maintenance:', error);
+            alert('حدث خطأ في تأكيد المهمة');
+        } finally {
+            setIsStarting(false);
         }
+    };
+
+    const handleCompleteRoute = async (finalWeight) => {
+        // استخدام موقع افتراضي لو مش متاح
+        if (!currentLocation) {
+            console.warn('Location not available, using default');
+        }
+        const locationData = currentLocation || { lat: 0, lng: 0, accuracy: 0 };
 
         try {
             const now = new Date().toISOString();
@@ -196,7 +235,7 @@ const RepresentativeRoute = () => {
                 .update({
                     status: 'completed',
                     end_time: now,
-                    end_location: currentLocation,
+                    end_location: locationData,
                     final_weight_at_incinerator: finalWeight
                 })
                 .eq('id', routeId);
@@ -208,7 +247,7 @@ const RepresentativeRoute = () => {
                 route_id: routeId,
                 event_type: 'route_completed',
                 event_time: now,
-                location: currentLocation,
+                location: locationData,
                 data: { final_weight: finalWeight }
             });
 
@@ -247,11 +286,19 @@ const RepresentativeRoute = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-start justify-between mb-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">
-                            {route.route_name || `رحلة ${new Date(route.route_date).toLocaleDateString('ar-EG')}`}
-                        </h1>
+                        <div className="flex items-center gap-2 mb-1">
+                            <h1 className="text-2xl font-bold text-gray-900">
+                                {route.route_name || `رحلة ${new Date(route.route_date).toLocaleDateString('ar-EG')}`}
+                            </h1>
+                            {route.route_type === 'maintenance' && (
+                                <span className="px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                                    🔧 صيانة
+                                </span>
+                            )}
+                        </div>
                         <p className="text-sm text-gray-500 mt-1">
-                            {route.vehicles?.plate_number} • {route.incinerators?.name}
+                            {route.vehicles?.plate_number}
+                            {route.route_type !== 'maintenance' && route.incinerators?.name && ` • ${route.incinerators.name}`}
                         </p>
                     </div>
                     <div className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -273,7 +320,8 @@ const RepresentativeRoute = () => {
                     </div>
                 )}
 
-                {canStart && (
+                {/* زر بدء الرحلة - لرحلات الجمع */}
+                {canStart && route.route_type !== 'maintenance' && (
                     <>
                         <button
                             onClick={handleStartRoute}
@@ -295,16 +343,74 @@ const RepresentativeRoute = () => {
                     </>
                 )}
 
-                {!currentLocation && (
-                    <div className="mt-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                        <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                        <span>الرجاء تفعيل خدمة الموقع للمتابعة</span>
+                {/* زر تأكيد استلام مهمة الصيانة */}
+                {canStart && route.route_type === 'maintenance' && (
+                    <button
+                        onClick={handleAcceptMaintenance}
+                        disabled={isStarting}
+                        className="mt-4 w-full flex items-center justify-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isStarting ? (
+                            <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                <span>جاري التأكيد...</span>
+                            </>
+                        ) : (
+                            <>
+                                <CheckCircle2 className="w-5 h-5" />
+                                <span>موافق - تم استلام المهمة</span>
+                            </>
+                        )}
+                    </button>
+                )}
+
+                {/* رسالة تفعيل الموقع - فقط لرحلات الجمع */}
+                {route.route_type !== 'maintenance' && !currentLocation && (
+                    <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-red-700 mb-2">
+                            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                            <span className="font-medium">خدمة الموقع غير مفعلة</span>
+                        </div>
+                        <p className="text-sm text-red-600 mb-3">يجب تفعيل خدمة الموقع للمتابعة في الرحلة</p>
+                        <button
+                            onClick={getCurrentLocation}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+                        >
+                            تفعيل الموقع
+                        </button>
                     </div>
                 )}
             </div>
 
-            {/* Route Progress */}
-            {isInProgress && (
+            {/* Maintenance Route Info */}
+            {route.route_type === 'maintenance' && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                            <span className="text-2xl">🔧</span>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-orange-900">رحلة صيانة</h3>
+                            <p className="text-sm text-orange-700">هذه الرحلة مخصصة لصيانة المركبة</p>
+                        </div>
+                    </div>
+                    {route.maintenance_details && (
+                        <div className="mt-3 p-3 bg-white rounded-lg border border-orange-200">
+                            <p className="text-xs text-gray-500 mb-1">تفاصيل الصيانة:</p>
+                            <p className="text-sm text-gray-700">{route.maintenance_details}</p>
+                        </div>
+                    )}
+                    {route.notes && (
+                        <div className="mt-3 p-3 bg-white rounded-lg border border-orange-200">
+                            <p className="text-xs text-gray-500 mb-1">ملاحظات:</p>
+                            <p className="text-sm text-gray-700">{route.notes}</p>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Route Progress - فقط لرحلات الجمع */}
+            {isInProgress && route.route_type !== 'maintenance' && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-gray-700">التقدم</span>
@@ -323,7 +429,8 @@ const RepresentativeRoute = () => {
                 </div>
             )}
 
-            {/* Stops List */}
+            {/* Stops List - فقط لرحلات الجمع */}
+            {route.route_type !== 'maintenance' && (
             <div className="space-y-4">
                 <h2 className="text-lg font-semibold text-gray-900">المحطات</h2>
                 {stops.map((stop, index) => (
@@ -339,24 +446,26 @@ const RepresentativeRoute = () => {
                     />
                 ))}
             </div>
+            )}
 
             {/* Incinerator Delivery - After all stops collected */}
-            {isInProgress && stops.every(s => s.status === 'collected') && deliveries.length === 0 && (
+            {route.route_type !== 'maintenance' && isInProgress && stops.every(s => s.status === 'collected') && deliveries.length === 0 && (
                 <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-6 text-center">
                     <Factory className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
                     <h3 className="font-bold text-gray-900 mb-2">تم التجميع من جميع العملاء</h3>
                     <p className="text-gray-600 mb-1">
-                        إجمالي المجمع: {stops.reduce((sum, s) => sum + (s.collection_details?.bags_count || 0), 0)} كيس
+                        إجمالي الأكياس: {stops.reduce((sum, s) => sum + (s.collection_details?.bags_count || 0), 0)} كيس
+                        ({stops.reduce((sum, s) => sum + (s.collection_details?.total_weight || 0), 0).toFixed(2)} كجم)
                     </p>
-                    {/* صناديق الأمانة */}
-                    {(stops.reduce((sum, s) => sum + (s.collection_details?.safety_box_bags || 0), 0) > 0 || 
-                      stops.reduce((sum, s) => sum + (s.collection_details?.safety_box_count || 0), 0) > 0) && (
+                    {/* سيفتي بوكس */}
+                    {stops.reduce((sum, s) => sum + (s.collection_details?.safety_box_count || 0), 0) > 0 && (
                         <p className="text-amber-700 mb-1 font-medium">
-                            📦 صناديق الأمانة: {stops.reduce((sum, s) => sum + (s.collection_details?.safety_box_bags || 0), 0)} كيس - {stops.reduce((sum, s) => sum + (s.collection_details?.safety_box_count || 0), 0)} صندوق
+                            📦 سيفتي بوكس: {stops.reduce((sum, s) => sum + (s.collection_details?.safety_box_count || 0), 0)} صندوق
+                            ({stops.reduce((sum, s) => sum + (s.collection_details?.safety_box_weight || 0), 0).toFixed(2)} كجم)
                         </p>
                     )}
-                    <p className="text-gray-600 mb-1">
-                        الوزن الكلي (شامل الأكياس والصناديق): {route.total_weight_collected || 0} كجم
+                    <p className="text-brand-700 font-bold mb-1">
+                        ⚖️ الوزن الكلي: {route.total_weight_collected || 0} كجم
                     </p>
                     <div className="mb-4"></div>
                     <button
@@ -370,7 +479,7 @@ const RepresentativeRoute = () => {
             )}
 
             {/* Delivery Summary - After delivery completed */}
-            {deliveries.length > 0 && (
+            {route.route_type !== 'maintenance' && deliveries.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                     <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
                         <Factory className="w-5 h-5 text-green-600" />
@@ -407,7 +516,11 @@ const RepresentativeRoute = () => {
                                 {stops.reduce((sum, s) => sum + (s.collection_details?.bags_count || 0), 0)} كيس
                             </div>
                             <div className="text-sm text-blue-600">
-                                {route.total_weight_collected || 0} كجم
+                                {(() => {
+                                    const bagsWeight = stops?.reduce((sum, s) => sum + (parseFloat(s.collection_details?.total_weight) || 0), 0) || 0;
+                                    const safetyBoxWeight = stops?.reduce((sum, s) => sum + (parseFloat(s.collection_details?.safety_box_weight) || 0), 0) || 0;
+                                    return (bagsWeight + safetyBoxWeight).toFixed(2);
+                                })()} كجم
                             </div>
                         </div>
                         <div className="text-center p-3 bg-green-50 rounded-lg">
@@ -416,7 +529,11 @@ const RepresentativeRoute = () => {
                                 {deliveries.reduce((sum, d) => sum + parseInt(d.bags_count || 0), 0)} كيس
                             </div>
                             <div className="text-sm text-green-600">
-                                {deliveries.reduce((sum, d) => sum + parseFloat(d.weight_delivered || 0), 0).toFixed(2)} كجم
+                                {(() => {
+                                    const deliveredWeight = deliveries.reduce((sum, d) => sum + parseFloat(d.weight_delivered || 0), 0);
+                                    const safetyBoxWeight = stops?.reduce((sum, s) => sum + (parseFloat(s.collection_details?.safety_box_weight) || 0), 0) || 0;
+                                    return (deliveredWeight + safetyBoxWeight).toFixed(2);
+                                })()} كجم
                             </div>
                         </div>
                         <div className="text-center p-3 bg-orange-50 rounded-lg">
@@ -439,15 +556,29 @@ const RepresentativeRoute = () => {
             )}
 
             {/* Completed Message */}
-            {isCompleted && (
+            {isCompleted && route.route_type !== 'maintenance' && (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
                     <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-3" />
                     <h3 className="text-lg font-semibold text-green-900 mb-2">
                         تم إنهاء الرحلة بنجاح
                     </h3>
                     <p className="text-sm text-green-700">
-                        إجمالي الوزن المجمع: {route.total_weight_collected} كجم
+                        إجمالي الوزن المجمع: {(() => {
+                            const bagsWeight = stops?.reduce((sum, stop) => sum + (parseFloat(stop.collection_details?.total_weight) || 0), 0) || 0;
+                            const safetyBoxWeight = stops?.reduce((sum, stop) => sum + (parseFloat(stop.collection_details?.safety_box_weight) || 0), 0) || 0;
+                            return (bagsWeight + safetyBoxWeight).toFixed(2);
+                        })()} كجم
                     </p>
+                </div>
+            )}
+
+            {/* Maintenance Completed Message */}
+            {isCompleted && route.route_type === 'maintenance' && (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
+                    <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold text-green-900 mb-2">
+                        تم تأكيد استلام مهمة الصيانة
+                    </h3>
                 </div>
             )}
 

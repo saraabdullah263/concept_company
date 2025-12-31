@@ -12,6 +12,7 @@ const RoutesPage = () => {
     const [loading, setLoading] = useState(true);
     const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
     const [statusFilter, setStatusFilter] = useState('all');
+    const [typeFilter, setTypeFilter] = useState('all');
     const [representativeId, setRepresentativeId] = useState(null);
 
     // Modal State
@@ -58,6 +59,10 @@ const RoutesPage = () => {
 
             if (statusFilter !== 'all') {
                 query = query.eq('status', statusFilter);
+            }
+
+            if (typeFilter !== 'all') {
+                query = query.eq('route_type', typeFilter);
             }
 
             const { data, error } = await query;
@@ -116,8 +121,10 @@ const RoutesPage = () => {
                     
                     stopsData.forEach(stop => {
                         stopCounts[stop.route_id] = (stopCounts[stop.route_id] || 0) + 1;
-                        const weight = stop.collection_details?.total_weight || 0;
-                        totalWeights[stop.route_id] = (totalWeights[stop.route_id] || 0) + parseFloat(weight);
+                        // حساب الوزن الكلي = وزن الأكياس + وزن السيفتي بوكس
+                        const bagsWeight = parseFloat(stop.collection_details?.total_weight || 0);
+                        const safetyBoxWeight = parseFloat(stop.collection_details?.safety_box_weight || 0);
+                        totalWeights[stop.route_id] = (totalWeights[stop.route_id] || 0) + bagsWeight + safetyBoxWeight;
                     });
 
                     enrichedData.forEach(route => {
@@ -142,7 +149,7 @@ const RoutesPage = () => {
             return; // انتظر حتى يتم جلب representative_id
         }
         fetchRoutes();
-    }, [filterDate, statusFilter, userRole, representativeId]);
+    }, [filterDate, statusFilter, typeFilter, userRole, representativeId]);
 
     const handleCreate = () => {
         setEditingRoute(null);
@@ -163,11 +170,13 @@ const RoutesPage = () => {
             // Prepare route data for form
             const routeData = {
                 route_name: route.route_name || '',
+                route_type: route.route_type || 'collection',
                 route_date: route.route_date,
                 estimated_start_time: route.estimated_start_time || '',
                 representative_id: route.representative_id || '',
                 vehicle_id: route.vehicle_id || '',
                 incinerator_id: route.incinerator_id || '',
+                maintenance_details: route.maintenance_details || '',
                 stops: (stops || []).map(stop => ({
                     hospital_id: stop.hospital_id,
                     stop_order: stop.stop_order,
@@ -203,11 +212,13 @@ const RoutesPage = () => {
             // Only keep valid route columns
             const routeData = {
                 route_name: formRouteData.route_name,
+                route_type: formRouteData.route_type || 'collection',
                 route_date: formRouteData.route_date,
                 estimated_start_time: formRouteData.estimated_start_time,
                 representative_id: formRouteData.representative_id,
                 vehicle_id: formRouteData.vehicle_id,
-                incinerator_id: formRouteData.incinerator_id || null
+                incinerator_id: formRouteData.route_type === 'maintenance' ? null : (formRouteData.incinerator_id || null),
+                maintenance_details: formRouteData.route_type === 'maintenance' ? formRouteData.maintenance_details : null
             };
 
             // Remove empty/null values
@@ -338,6 +349,16 @@ const RoutesPage = () => {
                     <option value="in_progress">جارية</option>
                     <option value="completed">مكتملة</option>
                     <option value="cancelled">ملغاة</option>
+                </select>
+
+                <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    className="w-full md:w-48 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
+                >
+                    <option value="all">جميع الأنواع</option>
+                    <option value="collection">رحلات جمع</option>
+                    <option value="maintenance">رحلات صيانة</option>
                 </select>
             </div>
 

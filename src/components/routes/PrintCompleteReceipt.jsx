@@ -27,18 +27,23 @@ const PrintCompleteReceipt = ({ route, stops, deliveries }) => {
         const totalCollected = {
             bags: stops.reduce((sum, stop) => sum + (stop.collection_details?.bags_count || 0), 0),
             weight: stops.reduce((sum, stop) => sum + (parseFloat(stop.collection_details?.total_weight) || 0), 0),
-            safetyBoxBags: stops.reduce((sum, stop) => sum + (stop.collection_details?.safety_box_bags || 0), 0),
-            safetyBoxCount: stops.reduce((sum, stop) => sum + (stop.collection_details?.safety_box_count || 0), 0)
+            safetyBoxCount: stops.reduce((sum, stop) => sum + (stop.collection_details?.safety_box_count || 0), 0),
+            safetyBoxWeight: stops.reduce((sum, stop) => sum + (parseFloat(stop.collection_details?.safety_box_weight) || 0), 0)
         };
+
+        // الوزن الكلي = وزن الأكياس + وزن السيفتي بوكس
+        const grandTotalWeight = totalCollected.weight + totalCollected.safetyBoxWeight;
 
         const totalDelivered = {
             bags: deliveries.reduce((sum, d) => sum + parseInt(d.bags_count || 0), 0),
-            weight: deliveries.reduce((sum, d) => sum + parseFloat(d.weight_delivered || 0), 0)
+            weight: deliveries.reduce((sum, d) => sum + parseFloat(d.weight_delivered || 0), 0),
+            // الوزن الكلي المسلم يشمل السيفتي بوكس
+            totalWeight: deliveries.reduce((sum, d) => sum + parseFloat(d.weight_delivered || 0), 0) + totalCollected.safetyBoxWeight
         };
 
         const remaining = {
             bags: totalCollected.bags - totalDelivered.bags,
-            weight: (totalCollected.weight - totalDelivered.weight).toFixed(2)
+            weight: (grandTotalWeight - totalDelivered.totalWeight).toFixed(2)
         };
 
         // جدول التجميع
@@ -48,7 +53,7 @@ const PrintCompleteReceipt = ({ route, stops, deliveries }) => {
                 <td>${stop.hospitals?.name || 'غير محدد'}</td>
                 <td>${stop.collection_details?.bags_count || 0}</td>
                 <td>${stop.collection_details?.total_weight || 0}</td>
-                <td>${stop.collection_details?.safety_box_bags || 0} / ${stop.collection_details?.safety_box_count || 0}</td>
+                <td>${stop.collection_details?.safety_box_count || 0} صندوق (${stop.collection_details?.safety_box_weight || 0} كجم)</td>
                 <td>${stop.collection_details?.collection_time ? 
                     new Date(stop.collection_details.collection_time).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) 
                     : '-'}</td>
@@ -73,89 +78,95 @@ const PrintCompleteReceipt = ({ route, stops, deliveries }) => {
                 <meta charset="UTF-8">
                 <title>إيصال مجمع - رحلة ${route.id.slice(0, 8)}</title>
                 <style>
+                    @page {
+                        size: A4;
+                        margin: 6mm;
+                    }
                     * {
                         margin: 0;
                         padding: 0;
                         box-sizing: border-box;
                     }
-                    
                     body {
-                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        font-family: 'Segoe UI', Tahoma, sans-serif;
                         direction: rtl;
-                        padding: 15mm;
+                        font-size: 11pt;
+                        line-height: 1.4;
                     }
-                    
                     .receipt {
-                        border: 3px solid #000;
-                        padding: 10mm;
-                        max-width: 210mm;
+                        width: 100%;
+                        max-width: 195mm;
                         margin: 0 auto;
+                        padding: 4mm;
+                        border: 2px solid #000;
+                        height: calc(297mm - 12mm);
+                        display: flex;
+                        flex-direction: column;
                     }
-                    
+                    .main-content {
+                        flex: 0 0 auto;
+                    }
+                    .bottom-section {
+                        flex: 1;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: flex-end;
+                    }
                     .header {
                         display: flex;
                         align-items: center;
-                        border-bottom: 3px solid #000;
-                        padding-bottom: 5mm;
-                        margin-bottom: 5mm;
+                        border-bottom: 2px solid #000;
+                        padding-bottom: 3mm;
+                        margin-bottom: 3mm;
                     }
-                    
                     .header img {
-                        height: 80px;
+                        height: 55px;
                     }
-                    
                     .header-text {
                         flex: 1;
                         text-align: center;
                     }
-                    
                     .header h1 {
-                        font-size: 20pt;
+                        font-size: 18pt;
                         color: #0066cc;
-                        margin-bottom: 3mm;
+                        margin-bottom: 1mm;
                     }
-                    
                     .header h2 {
-                        font-size: 16pt;
+                        font-size: 12pt;
                         color: #333;
                     }
-                    
                     .info-section {
-                        display: grid;
-                        grid-template-columns: 1fr 1fr;
-                        gap: 3mm;
-                        margin-bottom: 5mm;
+                        display: flex;
+                        justify-content: space-between;
+                        flex-wrap: wrap;
+                        gap: 2mm;
+                        margin-bottom: 3mm;
                         padding: 3mm;
                         background: #f5f5f5;
                         border-radius: 2mm;
-                    }
-                    
-                    .info-item {
                         font-size: 11pt;
                     }
-                    
+                    .info-item {
+                        display: inline;
+                    }
                     .info-label {
                         font-weight: bold;
-                        color: #555;
                     }
-                    
                     .section-title {
-                        font-size: 14pt;
+                        font-size: 12pt;
                         font-weight: bold;
                         background: #0066cc;
                         color: white;
-                        padding: 2mm 3mm;
-                        margin: 5mm 0 3mm 0;
+                        padding: 2mm 4mm;
+                        margin: 3mm 0 2mm 0;
                         border-radius: 2mm;
                     }
-                    
                     table {
                         width: 100%;
                         border-collapse: collapse;
-                        margin-bottom: 5mm;
+                        margin-bottom: 3mm;
                         font-size: 10pt;
                     }
-                    
                     th {
                         background: #e6f2ff;
                         border: 1px solid #333;
@@ -163,137 +174,105 @@ const PrintCompleteReceipt = ({ route, stops, deliveries }) => {
                         font-weight: bold;
                         text-align: center;
                     }
-                    
                     td {
                         border: 1px solid #666;
                         padding: 2mm;
                         text-align: center;
                     }
-                    
                     .totals-row {
                         background: #fff3cd;
                         font-weight: bold;
                     }
-                    
                     .summary-boxes {
-                        display: grid;
-                        grid-template-columns: 1fr 1fr 1fr;
+                        display: flex;
                         gap: 3mm;
-                        margin: 5mm 0;
+                        margin: 4mm 0;
                     }
-                    
                     .summary-box {
+                        flex: 1;
                         border: 2px solid #333;
                         padding: 3mm;
                         text-align: center;
                         border-radius: 2mm;
                     }
-                    
                     .summary-box.collected {
                         background: #e3f2fd;
                         border-color: #0066cc;
                     }
-                    
                     .summary-box.delivered {
                         background: #e8f5e9;
                         border-color: #00cc66;
                     }
-                    
                     .summary-box.remaining {
                         background: #fff3e0;
                         border-color: #ff9800;
                     }
-                    
                     .summary-label {
                         font-size: 10pt;
                         color: #666;
-                        margin-bottom: 2mm;
+                        margin-bottom: 1mm;
                     }
-                    
                     .summary-value {
-                        font-size: 14pt;
+                        font-size: 12pt;
                         font-weight: bold;
                     }
-                    
                     .signatures {
-                        display: grid;
-                        grid-template-columns: 1fr 1fr 1fr;
-                        gap: 5mm;
-                        margin-top: 8mm;
-                        padding-top: 5mm;
-                        border-top: 2px solid #333;
-                    }
-                    
-                    .signature-box {
-                        text-align: center;
-                    }
-                    
-                    .signature-label {
-                        font-weight: bold;
-                        font-size: 11pt;
-                        margin-bottom: 2mm;
-                    }
-                    
-                    .signature-line {
-                        height: 15mm;
-                        border-bottom: 2px solid #333;
-                        margin: 3mm 0;
-                    }
-                    
-                    .signature-name {
-                        font-size: 9pt;
-                        color: #666;
-                    }
-                    
-                    .footer {
-                        text-align: center;
+                        display: flex;
+                        gap: 4mm;
                         margin-top: 5mm;
                         padding-top: 3mm;
-                        border-top: 1px solid #ccc;
-                        font-size: 9pt;
+                        border-top: 2px solid #333;
+                    }
+                    .signature-box {
+                        flex: 1;
+                        text-align: center;
+                    }
+                    .signature-label {
+                        font-weight: bold;
+                        font-size: 12pt;
+                        margin-bottom: 2mm;
+                    }
+                    .signature-line {
+                        height: 18mm;
+                        border-bottom: 1px solid #333;
+                        margin: 2mm 0;
+                    }
+                    .signature-name {
+                        font-size: 10pt;
                         color: #666;
                     }
-                    
+                    .footer {
+                        text-align: center;
+                        margin-top: 4mm;
+                        padding-top: 3mm;
+                        border-top: 1px solid #ccc;
+                        font-size: 10pt;
+                        color: #666;
+                    }
                     @media print {
-                        body {
-                            padding: 0;
-                        }
-                        
-                        .receipt {
-                            border: 3px solid #000;
-                        }
+                        body { padding: 0; }
+                        .receipt { border: 2px solid #000; }
                     }
                 </style>
             </head>
             <body>
                 <div class="receipt">
+                    <div class="main-content">
                     <!-- Header -->
                     <div class="header">
                         <div class="header-text">
                             <h1>Concept Eco Care</h1>
                             <h2>إيصال مجمع تسليم نفايات طبية خطرة للمحرقة</h2>
                         </div>
-                        <img src="${logoUrl}" alt="Concept Eco Care" />
+                        <img src="${logoUrl}" alt="Logo" />
                     </div>
                     
                     <!-- Route Info -->
                     <div class="info-section">
-                        <div class="info-item">
-                            <span class="info-label">رقم الإيصال: </span>
-                            <span>${route.id.slice(0, 8).toUpperCase()}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">التاريخ: </span>
-                            <span>${routeDate}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">المندوب: </span>
-                            <span>${route.representatives?.users?.full_name || 'غير محدد'}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">رقم السيارة: </span>
-                            <span>${route.vehicles?.plate_number || 'غير محدد'}</span>
-                        </div>
+                        <div class="info-item"><span class="info-label">رقم الإيصال:</span> ${route.id.slice(0, 8).toUpperCase()}</div>
+                        <div class="info-item"><span class="info-label">التاريخ:</span> ${routeDate}</div>
+                        <div class="info-item"><span class="info-label">المندوب:</span> ${route.representatives?.users?.full_name || 'غير محدد'}</div>
+                        <div class="info-item"><span class="info-label">السيارة:</span> ${route.vehicles?.plate_number || 'غير محدد'}</div>
                     </div>
                     
                     <!-- Collection Section -->
@@ -301,12 +280,12 @@ const PrintCompleteReceipt = ({ route, stops, deliveries }) => {
                     <table>
                         <thead>
                             <tr>
-                                <th style="width: 6%">م</th>
-                                <th style="width: 30%">اسم المنشأة</th>
-                                <th style="width: 14%">عدد الأكياس</th>
-                                <th style="width: 14%">الوزن (كجم)</th>
-                                <th style="width: 18%">صناديق الأمانة</th>
-                                <th style="width: 18%">ساعة الاستلام</th>
+                                <th>م</th>
+                                <th>اسم المنشأة</th>
+                                <th>الأكياس</th>
+                                <th>الوزن</th>
+                                <th>سيفتي بوكس</th>
+                                <th>الوقت</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -314,33 +293,48 @@ const PrintCompleteReceipt = ({ route, stops, deliveries }) => {
                             <tr class="totals-row">
                                 <td colspan="2">الإجمالي</td>
                                 <td>${totalCollected.bags}</td>
-                                <td>${totalCollected.weight.toFixed(2)}</td>
-                                <td>${totalCollected.safetyBoxBags} / ${totalCollected.safetyBoxCount}</td>
+                                <td>${totalCollected.weight.toFixed(2)} كجم</td>
+                                <td>${totalCollected.safetyBoxCount} (${totalCollected.safetyBoxWeight?.toFixed(2) || 0} كجم)</td>
                                 <td>-</td>
+                            </tr>
+                            <tr class="totals-row" style="background: #e3f2fd;">
+                                <td colspan="3"><strong>⚖️ الوزن الكلي</strong></td>
+                                <td colspan="3"><strong>${(totalCollected.weight + (totalCollected.safetyBoxWeight || 0)).toFixed(2)} كجم</strong></td>
                             </tr>
                         </tbody>
                     </table>
                     
                     ${deliveries.length > 0 ? `
-                        <!-- Delivery Section -->
                         <div class="section-title">🏭 تفاصيل التسليم للمحارق</div>
                         <table>
                             <thead>
                                 <tr>
-                                    <th style="width: 8%">م</th>
-                                    <th style="width: 40%">اسم المحرقة</th>
-                                    <th style="width: 17%">عدد الأكياس</th>
-                                    <th style="width: 17%">الوزن (كجم)</th>
-                                    <th style="width: 18%">ساعة التسليم</th>
+                                    <th>م</th>
+                                    <th>المحرقة</th>
+                                    <th>الأكياس</th>
+                                    <th>الوزن</th>
+                                    <th>الوقت</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 ${deliveryRows}
                                 <tr class="totals-row">
-                                    <td colspan="2">الإجمالي المسلم</td>
+                                    <td colspan="2">الإجمالي</td>
                                     <td>${totalDelivered.bags}</td>
-                                    <td>${totalDelivered.weight.toFixed(2)}</td>
+                                    <td>${totalDelivered.weight.toFixed(2)} كجم</td>
                                     <td>-</td>
+                                </tr>
+                                ${totalCollected.safetyBoxCount > 0 ? `
+                                <tr class="totals-row" style="background: #fff8e1;">
+                                    <td colspan="2">📦 سيفتي بوكس</td>
+                                    <td>${totalCollected.safetyBoxCount} صندوق</td>
+                                    <td>${totalCollected.safetyBoxWeight?.toFixed(2) || 0} كجم</td>
+                                    <td>-</td>
+                                </tr>
+                                ` : ''}
+                                <tr class="totals-row" style="background: #e8f5e9;">
+                                    <td colspan="2"><strong>⚖️ الوزن الكلي المسلم</strong></td>
+                                    <td colspan="3"><strong>${totalDelivered.totalWeight.toFixed(2)} كجم</strong></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -350,16 +344,15 @@ const PrintCompleteReceipt = ({ route, stops, deliveries }) => {
                     <div class="summary-boxes">
                         <div class="summary-box collected">
                             <div class="summary-label">إجمالي المجمع</div>
-                            <div class="summary-value">${totalCollected.bags} كيس</div>
-                            <div class="summary-value">${totalCollected.weight.toFixed(2)} كجم</div>
-                            ${totalCollected.safetyBoxBags > 0 || totalCollected.safetyBoxCount > 0 ? `
-                                <div class="summary-value" style="font-size: 10pt; color: #ff9800;">📦 ${totalCollected.safetyBoxBags} كيس / ${totalCollected.safetyBoxCount} صندوق</div>
-                            ` : ''}
+                            <div class="summary-value">${totalCollected.bags} كيس (${totalCollected.weight.toFixed(2)} كجم)</div>
+                            ${totalCollected.safetyBoxCount > 0 ? `<div style="font-size:8pt;color:#ff9800;">📦 ${totalCollected.safetyBoxCount} صندوق (${totalCollected.safetyBoxWeight?.toFixed(2)||0} كجم)</div>` : ''}
+                            <div style="font-size:9pt;font-weight:bold;color:#1565c0;">⚖️ الكلي: ${grandTotalWeight.toFixed(2)} كجم</div>
                         </div>
                         <div class="summary-box delivered">
                             <div class="summary-label">إجمالي المسلم</div>
-                            <div class="summary-value">${totalDelivered.bags} كيس</div>
-                            <div class="summary-value">${totalDelivered.weight.toFixed(2)} كجم</div>
+                            <div class="summary-value">${totalDelivered.bags} كيس (${totalDelivered.weight.toFixed(2)} كجم)</div>
+                            ${totalCollected.safetyBoxCount > 0 ? `<div style="font-size:8pt;color:#ff9800;">📦 ${totalCollected.safetyBoxCount} صندوق (${totalCollected.safetyBoxWeight?.toFixed(2)||0} كجم)</div>` : ''}
+                            <div style="font-size:9pt;font-weight:bold;color:#00cc66;">⚖️ الكلي: ${totalDelivered.totalWeight.toFixed(2)} كجم</div>
                         </div>
                         <div class="summary-box remaining">
                             <div class="summary-label">متبقي في السيارة</div>
@@ -367,36 +360,35 @@ const PrintCompleteReceipt = ({ route, stops, deliveries }) => {
                             <div class="summary-value">${remaining.weight} كجم</div>
                         </div>
                     </div>
+                    </div>
                     
+                    <div class="bottom-section">
                     <!-- Signatures -->
                     <div class="signatures">
                         <div class="signature-box">
                             <div class="signature-label">توقيع المندوب</div>
                             <div class="signature-line"></div>
-                            <div class="signature-name">الاسم: _______________</div>
-                            <div class="signature-name">التاريخ: _______________</div>
+                            <div class="signature-name">الاسم: _________ التاريخ: _________</div>
                         </div>
-                        ${deliveries.length > 0 ? deliveries.map(d => `
+                        ${deliveries.length > 0 ? deliveries.slice(0, 2).map(d => `
                             <div class="signature-box">
                                 <div class="signature-label">توقيع ${d.incinerators?.name || 'المحرقة'}</div>
                                 <div class="signature-line"></div>
-                                <div class="signature-name">الاسم: _______________</div>
-                                <div class="signature-name">التاريخ: _______________</div>
+                                <div class="signature-name">الاسم: _________ التاريخ: _________</div>
                             </div>
-                        `).slice(0, 2).join('') : `
+                        `).join('') : `
                             <div class="signature-box">
                                 <div class="signature-label">توقيع المحرقة</div>
                                 <div class="signature-line"></div>
-                                <div class="signature-name">الاسم: _______________</div>
-                                <div class="signature-name">التاريخ: _______________</div>
+                                <div class="signature-name">الاسم: _________ التاريخ: _________</div>
                             </div>
                         `}
                     </div>
                     
                     <!-- Footer -->
                     <div class="footer">
-                        <p>جميع البيانات إعادة أيضاً من أيصالات الاستلام القياسية المسجلة خلال اليوم.</p>
-                        <p>أقر بأن البيانات المدونة أعلاه تم تسجيلها أيضاً بصحتها الاستلام بإيصالات الصحة والبيئة.</p>
+                        أقر بأن البيانات المدونة أعلاه صحيحة ومطابقة لإيصالات الاستلام المسجلة.
+                    </div>
                     </div>
                 </div>
             </body>

@@ -33,10 +33,11 @@ const PhotoUploadModal = ({ isOpen, onClose, stopId, routeId, currentLocation, o
             return;
         }
 
+        // استخدام موقع افتراضي لو مش متاح
         if (!currentLocation) {
-            alert('الرجاء تفعيل خدمة الموقع');
-            return;
+            console.warn('Location not available, using default');
         }
+        const locationData = currentLocation || { lat: 0, lng: 0, accuracy: 0 };
 
         try {
             setIsUploading(true);
@@ -88,7 +89,7 @@ const PhotoUploadModal = ({ isOpen, onClose, stopId, routeId, currentLocation, o
                 .update({
                     photo_proof: photoUrl,
                     photo_upload_time: now,
-                    photo_upload_location: currentLocation
+                    photo_upload_location: locationData
                 })
                 .eq('id', stopId);
 
@@ -100,7 +101,7 @@ const PhotoUploadModal = ({ isOpen, onClose, stopId, routeId, currentLocation, o
                 route_stop_id: stopId,
                 event_type: 'photo_uploaded',
                 event_time: now,
-                location: currentLocation,
+                location: locationData,
                 data: { photo_url: photoUrl }
             });
 

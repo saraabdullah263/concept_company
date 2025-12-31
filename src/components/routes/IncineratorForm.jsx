@@ -13,6 +13,7 @@ const IncineratorForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting 
                 location: '',
                 capacity_per_day: '',
                 cost_per_kg: '',
+                insurance_amount: '',
                 is_active: true
             });
         }
@@ -87,6 +88,17 @@ const IncineratorForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting 
                             />
                             {errors.cost_per_kg && <p className="mt-1 text-sm text-red-600">{errors.cost_per_kg.message}</p>}
                         </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">مبلغ التأمين (ج.م)</label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            {...register('insurance_amount', { min: 0 })}
+                            className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                            placeholder="0.00"
+                        />
                     </div>
 
                     <div className="flex items-center gap-2">

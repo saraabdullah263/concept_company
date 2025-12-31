@@ -115,7 +115,7 @@ const Invoices = () => {
     };
 
     // Calculate Stats
-    const totalDue = invoices.filter(i => i.status !== 'paid').reduce((sum, curr) => sum + (curr.total_amount || 0), 0);
+    const totalDue = invoices.reduce((sum, curr) => sum + (curr.total_amount || 0), 0);
     const totalPaid = invoices.filter(i => i.status === 'paid').reduce((sum, curr) => sum + (curr.total_amount || 0), 0);
 
     return (
@@ -148,11 +148,11 @@ const Invoices = () => {
                 </div>
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-4 overflow-x-auto text-sm">
                     <div className="flex-1 min-w-[100px] border-l pl-4">
-                        <p className="text-gray-500 mb-1">المستحق (Pending)</p>
-                        <p className="font-bold text-lg text-yellow-600">{totalDue.toLocaleString()} ج.م</p>
+                        <p className="text-gray-500 mb-1">إجمالي المستحق</p>
+                        <p className="font-bold text-lg text-blue-600">{totalDue.toLocaleString()} ج.م</p>
                     </div>
                     <div className="flex-1 min-w-[100px]">
-                        <p className="text-gray-500 mb-1">المدفوع (Paid)</p>
+                        <p className="text-gray-500 mb-1">المدفوع</p>
                         <p className="font-bold text-lg text-green-600">{totalPaid.toLocaleString()} ج.م</p>
                     </div>
                 </div>

@@ -16,10 +16,11 @@ const WeightEntryModal = ({ isOpen, onClose, stopId, routeId, currentLocation, o
             return;
         }
 
+        // استخدام موقع افتراضي لو مش متاح
         if (!currentLocation) {
-            alert('الرجاء تفعيل خدمة الموقع');
-            return;
+            console.warn('Location not available, using default');
         }
+        const locationData = currentLocation || { lat: 0, lng: 0, accuracy: 0 };
 
         try {
             setIsSubmitting(true);
@@ -30,7 +31,7 @@ const WeightEntryModal = ({ isOpen, onClose, stopId, routeId, currentLocation, o
                 .update({
                     weight_collected: parseFloat(weight),
                     weight_entry_time: now,
-                    weight_entry_location: currentLocation
+                    weight_entry_location: locationData
                 })
                 .eq('id', stopId);
 
@@ -42,7 +43,7 @@ const WeightEntryModal = ({ isOpen, onClose, stopId, routeId, currentLocation, o
                 route_stop_id: stopId,
                 event_type: 'weight_entered',
                 event_time: now,
-                location: currentLocation,
+                location: locationData,
                 data: { weight: parseFloat(weight) }
             });
 

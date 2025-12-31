@@ -28,6 +28,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         { name: 'المركبات', to: '/vehicles', icon: Truck, roles: ['admin', 'logistics_manager'] },
         { name: 'المحارق', to: '/incinerators', icon: Flame, roles: ['admin', 'logistics_manager'] },
         { name: 'المحاسبة', to: '/accounting', icon: BarChart2, roles: ['admin', 'accountant'] },
+        { name: 'حسابات المحارق', to: '/incinerator-accounts', icon: Flame, roles: ['admin', 'accountant'] },
         { name: 'الفواتير', to: '/invoices', icon: Calculator, roles: ['admin', 'accountant'] },
         { name: 'المصاريف', to: '/expenses', icon: DollarSign, roles: ['admin', 'accountant'] },
         { name: 'التقارير', to: '/reports', icon: BarChart2, roles: ['admin', 'logistics_manager', 'accountant'] },

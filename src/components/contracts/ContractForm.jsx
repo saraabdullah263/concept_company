@@ -1,5 +1,5 @@
 import { useForm } from 'react-hook-form';
-import { Loader2, X, FileText } from 'lucide-react';
+import { Loader2, X, FileText, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '../../services/supabase';
 import clsx from 'clsx';
@@ -11,6 +11,9 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
     const [hospitals, setHospitals] = useState([]);
     const [selectedHospital, setSelectedHospital] = useState(null);
     const [isPrinting, setIsPrinting] = useState(false);
+    const [customClauses, setCustomClauses] = useState([]);
+    const [newClauseTitle, setNewClauseTitle] = useState('');
+    const [newClauseContent, setNewClauseContent] = useState('');
 
     const watchHospitalId = watch('hospital_id');
 
@@ -39,8 +42,23 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                 client_activity: '',
                 commercial_register: '',
                 tax_number: '',
-                manager_name: ''
+                manager_name: '',
+                custom_clauses: []
             });
+            
+            // تحميل البنود المخصصة إذا كانت موجودة
+            if (initialData?.custom_clauses) {
+                try {
+                    const clauses = typeof initialData.custom_clauses === 'string' 
+                        ? JSON.parse(initialData.custom_clauses) 
+                        : initialData.custom_clauses;
+                    setCustomClauses(clauses || []);
+                } catch {
+                    setCustomClauses([]);
+                }
+            } else {
+                setCustomClauses([]);
+            }
         }
     }, [isOpen, initialData, reset]);
 
@@ -51,6 +69,24 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
             setSelectedHospital(hospital);
         }
     }, [watchHospitalId, hospitals]);
+
+    // إضافة بند مخصص جديد
+    const addCustomClause = () => {
+        if (newClauseTitle.trim() && newClauseContent.trim()) {
+            setCustomClauses([...customClauses, {
+                id: Date.now(),
+                title: newClauseTitle.trim(),
+                content: newClauseContent.trim()
+            }]);
+            setNewClauseTitle('');
+            setNewClauseContent('');
+        }
+    };
+
+    // حذف بند مخصص
+    const removeCustomClause = (id) => {
+        setCustomClauses(customClauses.filter(c => c.id !== id));
+    };
 
     const handlePrintContract = async () => {
         const formData = watch();
@@ -63,6 +99,9 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
         setIsPrinting(true);
         try {
             const hospital = hospitals.find(h => h.id === formData.hospital_id);
+            
+            // Debug: تحقق من البنود قبل الإرسال
+            console.log('Custom Clauses to send:', customClauses);
             
             await generateNewContractPDF({
                 contractNumber: formData.contract_number,
@@ -80,7 +119,8 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                 phoneNumbers: hospital?.contact_phone || '',
                 managerName: formData.manager_name || hospital?.manager_name || '',
                 minWeight: formData.min_weight || '15',
-                minPrice: formData.min_price || ''
+                minPrice: formData.min_price || '',
+                customClauses: customClauses
             });
         } catch (error) {
             console.error('Error printing contract:', error);
@@ -104,7 +144,7 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+                <form onSubmit={handleSubmit((data) => onSubmit({ ...data, custom_clauses: customClauses }))} className="p-6 space-y-6">
                     {/* رقم العقد وتاريخه */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -276,6 +316,66 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                                 <option value="expired">منتهي</option>
                                 <option value="terminated">ملغي (فسخ عقد)</option>
                             </select>
+                        </div>
+                    </div>
+
+                    {/* البنود المخصصة */}
+                    <div className="bg-amber-50 p-4 rounded-lg space-y-4">
+                        <h3 className="font-medium text-gray-900 border-b border-amber-200 pb-2">بنود إضافية مخصصة</h3>
+                        <p className="text-sm text-gray-600">يمكنك إضافة بنود خاصة تظهر في العقد المطبوع</p>
+                        
+                        {/* البنود المضافة */}
+                        {customClauses.length > 0 && (
+                            <div className="space-y-3">
+                                {customClauses.map((clause, index) => (
+                                    <div key={clause.id} className="bg-white p-3 rounded-lg border border-amber-200">
+                                        <div className="flex justify-between items-start gap-2">
+                                            <div className="flex-1">
+                                                <h4 className="font-medium text-gray-900 text-sm">
+                                                    بند إضافي ({index + 1}): {clause.title}
+                                                </h4>
+                                                <p className="text-sm text-gray-600 mt-1">{clause.content}</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeCustomClause(clause.id)}
+                                                className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* إضافة بند جديد */}
+                        <div className="bg-white p-3 rounded-lg border border-dashed border-amber-300">
+                            <div className="space-y-3">
+                                <input
+                                    type="text"
+                                    value={newClauseTitle}
+                                    onChange={(e) => setNewClauseTitle(e.target.value)}
+                                    placeholder="عنوان البند (مثال: شروط خاصة بالدفع)"
+                                    className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm"
+                                />
+                                <textarea
+                                    value={newClauseContent}
+                                    onChange={(e) => setNewClauseContent(e.target.value)}
+                                    placeholder="محتوى البند..."
+                                    rows={2}
+                                    className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={addCustomClause}
+                                    disabled={!newClauseTitle.trim() || !newClauseContent.trim()}
+                                    className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-amber-700 bg-amber-100 rounded-lg hover:bg-amber-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    إضافة البند
+                                </button>
+                            </div>
                         </div>
                     </div>
 

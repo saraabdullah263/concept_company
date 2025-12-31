@@ -80,6 +80,15 @@ const Contracts = () => {
                 start_date: data.start_date,
                 end_date: data.end_date,
                 price_per_kg: data.price_per_kg,
+                contract_fees: data.contract_fees || 0,
+                contract_duration: data.contract_duration,
+                min_weight: data.min_weight || 15,
+                min_price: data.min_price || null,
+                client_activity: data.client_activity,
+                commercial_register: data.commercial_register,
+                tax_number: data.tax_number,
+                manager_name: data.manager_name,
+                custom_clauses: data.custom_clauses ? JSON.stringify(data.custom_clauses) : null,
                 status: data.status,
                 notes: data.notes || null
             };

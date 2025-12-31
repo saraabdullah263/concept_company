@@ -25,6 +25,9 @@ const HospitalForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
             contact_mobile: '',
             contact_landline: '',
             contact_email: '',
+            visit_hours_from: '',
+            visit_hours_to: '',
+            visit_days: [],
             is_active: true
         }
     });
@@ -33,6 +36,7 @@ const HospitalForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
     const longitude = watch('longitude');
     const clientName = watch('name');
     const city = watch('city');
+    const clientType = watch('client_type');
 
     const openMapPicker = () => {
         const lat = latitude || '30.0444';
@@ -162,6 +166,9 @@ const HospitalForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                     contact_mobile: '',
                     contact_landline: '',
                     contact_email: '',
+                    visit_hours_from: '',
+                    visit_hours_to: '',
+                    visit_days: [],
                     is_active: true
                 });
                 setSelectedAddress('');
@@ -458,6 +465,62 @@ const HospitalForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                             </div>
                         </div>
                     </div>
+
+                    {/* Visit Hours Section - للعيادات والمراكز الطبية */}
+                    {(clientType === 'clinic' || clientType === 'medical_center') && (
+                    <div className="space-y-4 pt-4 border-t border-gray-200">
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <svg className="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            مواعيد الزيارة المتاحة
+                        </h3>
+                        <p className="text-sm text-gray-500">حدد الأوقات المتاحة لزيارة هذا العميل</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    من الساعة
+                                </label>
+                                <input
+                                    type="time"
+                                    {...register('visit_hours_from')}
+                                    className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    إلى الساعة
+                                </label>
+                                <input
+                                    type="time"
+                                    {...register('visit_hours_to')}
+                                    className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                                />
+                            </div>
+
+                            <div className="col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    أيام الزيارة المتاحة
+                                </label>
+                                <div className="flex flex-wrap gap-2">
+                                    {['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'].map((day) => (
+                                        <label key={day} className="inline-flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                value={day}
+                                                {...register('visit_days')}
+                                                className="w-4 h-4 text-brand-600 border-gray-300 rounded focus:ring-brand-500"
+                                            />
+                                            <span className="mr-2 text-sm text-gray-700">{day}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    )}
 
                     {/* Contact Info Section */}
                     <div className="space-y-4 pt-4 border-t border-gray-200">

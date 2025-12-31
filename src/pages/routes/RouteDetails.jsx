@@ -162,7 +162,7 @@ const RouteDetails = () => {
             </div>
 
             {/* Info Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className={`grid grid-cols-1 gap-4 ${route.route_type === 'maintenance' ? 'md:grid-cols-2' : 'md:grid-cols-4'}`}>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center gap-3 mb-2">
                         <User className="w-5 h-5 text-brand-600" />
@@ -180,12 +180,20 @@ const RouteDetails = () => {
                     {route.vehicles?.model && <p className="text-xs text-gray-500">{route.vehicles.model}</p>}
                 </div>
 
+                {route.route_type !== 'maintenance' && (
+                <>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center gap-3 mb-2">
                         <Package className="w-5 h-5 text-brand-600" />
                         <span className="text-sm text-gray-500">الوزن المجمع</span>
                     </div>
-                    <p className="font-medium">{route.total_weight_collected || 0} كجم</p>
+                    <p className="font-medium">
+                        {(() => {
+                            const bagsWeight = route.route_stops?.reduce((sum, stop) => sum + (parseFloat(stop.collection_details?.total_weight) || 0), 0) || 0;
+                            const safetyBoxWeight = route.route_stops?.reduce((sum, stop) => sum + (parseFloat(stop.collection_details?.safety_box_weight) || 0), 0) || 0;
+                            return (bagsWeight + safetyBoxWeight).toFixed(2);
+                        })()} كجم
+                    </p>
                 </div>
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
@@ -194,23 +202,62 @@ const RouteDetails = () => {
                         <span className="text-sm text-gray-500">المسلم للمحارق</span>
                     </div>
                     <p className="font-medium text-green-600">
-                        {deliveries.reduce((sum, d) => sum + parseFloat(d.weight_delivered || 0), 0).toFixed(2)} كجم
+                        {(() => {
+                            const deliveredWeight = deliveries.reduce((sum, d) => sum + parseFloat(d.weight_delivered || 0), 0);
+                            const safetyBoxWeight = route.route_stops?.reduce((sum, stop) => sum + (parseFloat(stop.collection_details?.safety_box_weight) || 0), 0) || 0;
+                            return (deliveredWeight + safetyBoxWeight).toFixed(2);
+                        })()} كجم
                     </p>
                 </div>
+                </>
+                )}
             </div>
 
-            {/* Incinerator Deliveries Section */}
-            {deliveries.length > 0 ? (
+            {/* Maintenance Details */}
+            {route.route_type === 'maintenance' && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                            <span className="text-2xl">🔧</span>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-orange-900">رحلة صيانة</h3>
+                            <p className="text-sm text-orange-700">هذه الرحلة مخصصة لصيانة المركبة</p>
+                        </div>
+                    </div>
+                    {route.maintenance_details && (
+                        <div className="mt-3 p-3 bg-white rounded-lg border border-orange-200">
+                            <p className="text-xs text-gray-500 mb-1">تفاصيل الصيانة:</p>
+                            <p className="text-sm text-gray-700">{route.maintenance_details}</p>
+                        </div>
+                    )}
+                    {route.notes && (
+                        <div className="mt-3 p-3 bg-white rounded-lg border border-orange-200">
+                            <p className="text-xs text-gray-500 mb-1">ملاحظات:</p>
+                            <p className="text-sm text-gray-700">{route.notes}</p>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Incinerator Deliveries Section - فقط لرحلات الجمع */}
+            {route.route_type !== 'maintenance' && deliveries.length > 0 ? (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                     <div className="p-4 border-b border-gray-100">
                         <h3 className="font-bold text-gray-900 flex items-center gap-2">
                             <Factory className="w-5 h-5 text-green-600" />
-                            تسليم النفايات للمحارق ({deliveries.length})
+                            ملخص التسليم للمحارق
                         </h3>
+                        <p className="text-sm text-gray-500 mt-1">رقم الإيصال: {route.id.slice(0, 8).toUpperCase()}</p>
                     </div>
                     <div className="p-4">
                         <div className="space-y-3">
-                            {deliveries.map((delivery, index) => (
+                            {deliveries.map((delivery, index) => {
+                                // حساب الوزن الكلي المسلم (أكياس + سيفتي بوكس)
+                                const safetyBoxWeight = route.route_stops?.reduce((sum, stop) => sum + (parseFloat(stop.collection_details?.safety_box_weight) || 0), 0) || 0;
+                                const totalDeliveredWeight = parseFloat(delivery.weight_delivered) + safetyBoxWeight;
+                                
+                                return (
                                 <div key={delivery.id} className="border-2 border-green-100 rounded-lg p-4 bg-green-50">
                                     <div className="flex items-start justify-between mb-3">
                                         <div>
@@ -228,6 +275,14 @@ const RouteDetails = () => {
                                             <div className="text-sm text-gray-600">الكمية المسلمة</div>
                                             <div className="font-bold text-green-600">
                                                 {delivery.bags_count} كيس - {delivery.weight_delivered} كجم
+                                            </div>
+                                            {safetyBoxWeight > 0 && (
+                                                <div className="text-xs text-amber-600 mt-1">
+                                                    + سيفتي بوكس: {safetyBoxWeight.toFixed(2)} كجم
+                                                </div>
+                                            )}
+                                            <div className="font-bold text-green-800 mt-1 pt-1 border-t border-green-200">
+                                                ⚖️ الكلي: {totalDeliveredWeight.toFixed(2)} كجم
                                             </div>
                                         </div>
                                     </div>
@@ -266,46 +321,58 @@ const RouteDetails = () => {
                                         </div>
                                     )}
                                 </div>
-                            ))}
+                            )})}
                         </div>
 
                         {/* Summary */}
                         <div className="mt-4 pt-4 border-t-2 border-gray-200">
-                            <div className="grid grid-cols-3 gap-4 text-center">
-                                <div className="bg-blue-50 p-3 rounded-lg">
-                                    <div className="text-sm text-gray-600 mb-1">إجمالي المجمع</div>
-                                    <div className="font-bold text-blue-600">
-                                        {route.route_stops?.reduce((sum, stop) => 
-                                            sum + (stop.collection_details?.bags_count || 0), 0) || 0} كيس
+                            {/* حساب الإجماليات */}
+                            {(() => {
+                                const totalBags = route.route_stops?.reduce((sum, stop) => sum + (stop.collection_details?.bags_count || 0), 0) || 0;
+                                const totalBagsWeight = route.route_stops?.reduce((sum, stop) => sum + (parseFloat(stop.collection_details?.total_weight) || 0), 0) || 0;
+                                const totalSafetyBoxCount = route.route_stops?.reduce((sum, stop) => sum + (stop.collection_details?.safety_box_count || 0), 0) || 0;
+                                const totalSafetyBoxWeight = route.route_stops?.reduce((sum, stop) => sum + (parseFloat(stop.collection_details?.safety_box_weight) || 0), 0) || 0;
+                                const grandTotalWeight = totalBagsWeight + totalSafetyBoxWeight;
+                                const deliveredWeight = deliveries.reduce((sum, d) => sum + parseFloat(d.weight_delivered || 0), 0);
+                                const deliveredBags = deliveries.reduce((sum, d) => sum + parseInt(d.bags_count || 0), 0);
+                                // المسلم يشمل كل شيء (أكياس + سيفتي بوكس)
+                                const totalDeliveredWeight = deliveredWeight + totalSafetyBoxWeight;
+
+                                return (
+                                    <div className="grid grid-cols-3 gap-4 text-center">
+                                        <div className="bg-blue-50 p-3 rounded-lg">
+                                            <div className="text-sm text-gray-600 mb-1">إجمالي المجمع</div>
+                                            <div className="font-bold text-blue-600">{totalBags} كيس ({totalBagsWeight.toFixed(2)} كجم)</div>
+                                            {totalSafetyBoxCount > 0 && (
+                                                <div className="text-xs text-amber-600 mt-1">📦 {totalSafetyBoxCount} صندوق ({totalSafetyBoxWeight.toFixed(2)} كجم)</div>
+                                            )}
+                                            <div className="font-bold text-blue-800 mt-1 pt-1 border-t border-blue-200">⚖️ الكلي: {grandTotalWeight.toFixed(2)} كجم</div>
+                                        </div>
+                                        <div className="bg-green-50 p-3 rounded-lg">
+                                            <div className="text-sm text-gray-600 mb-1">إجمالي المسلم</div>
+                                            <div className="font-bold text-green-600">{deliveredBags} كيس ({deliveredWeight.toFixed(2)} كجم)</div>
+                                            {totalSafetyBoxCount > 0 && (
+                                                <div className="text-xs text-amber-600 mt-1">📦 {totalSafetyBoxCount} صندوق ({totalSafetyBoxWeight.toFixed(2)} كجم)</div>
+                                            )}
+                                            <div className="font-bold text-green-800 mt-1 pt-1 border-t border-green-200">⚖️ الكلي: {totalDeliveredWeight.toFixed(2)} كجم</div>
+                                        </div>
+                                        <div className="bg-orange-50 p-3 rounded-lg">
+                                            <div className="text-sm text-gray-600 mb-1">متبقي في السيارة</div>
+                                            <div className="font-bold text-orange-600">
+                                                {route.remaining_bags || 0} كيس
+                                            </div>
+                                            <div className="font-bold text-orange-600">
+                                                {route.remaining_weight || 0} كجم
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="font-bold text-blue-600">
-                                        {route.total_weight_collected || 0} كجم
-                                    </div>
-                                </div>
-                                <div className="bg-green-50 p-3 rounded-lg">
-                                    <div className="text-sm text-gray-600 mb-1">إجمالي المسلم</div>
-                                    <div className="font-bold text-green-600">
-                                        {deliveries.reduce((sum, d) => sum + parseInt(d.bags_count || 0), 0)} كيس
-                                    </div>
-                                    <div className="font-bold text-green-600">
-                                        {deliveries.reduce((sum, d) => sum + parseFloat(d.weight_delivered || 0), 0).toFixed(2)} كجم
-                                    </div>
-                                </div>
-                                <div className="bg-orange-50 p-3 rounded-lg">
-                                    <div className="text-sm text-gray-600 mb-1">متبقي في السيارة</div>
-                                    <div className="font-bold text-orange-600">
-                                        {route.remaining_bags || 0} كيس
-                                    </div>
-                                    <div className="font-bold text-orange-600">
-                                        {route.remaining_weight || 0} كجم
-                                    </div>
-                                </div>
-                            </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
             ) : (
-                route.route_stops?.some(stop => stop.collection_details) && (
+                route.route_type !== 'maintenance' && route.route_stops?.some(stop => stop.collection_details) && (
                     <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-6 text-center">
                         <Factory className="w-12 h-12 text-yellow-600 mx-auto mb-3" />
                         <h3 className="font-bold text-gray-900 mb-2">لم يتم تسليم النفايات للمحارق بعد</h3>
@@ -321,7 +388,8 @@ const RouteDetails = () => {
                 )
             )}
 
-            {/* Route Stops */}
+            {/* Route Stops - فقط لرحلات الجمع */}
+            {route.route_type !== 'maintenance' && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                 <div className="p-4 border-b border-gray-100">
                     <h3 className="font-bold text-gray-900">محطات الرحلة ({route.route_stops?.length || 0})</h3>
@@ -369,10 +437,15 @@ const RouteDetails = () => {
                                             {/* Collection Details */}
                                             {stop.collection_details && (
                                                 <div className="bg-white rounded-lg p-4 border-2 border-brand-100">
-                                                    <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                                                        <Package className="w-4 h-4 text-brand-600" />
-                                                        تفاصيل الاستلام
-                                                    </h5>
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <h5 className="font-semibold text-gray-900 flex items-center gap-2">
+                                                            <Package className="w-4 h-4 text-brand-600" />
+                                                            تفاصيل الاستلام
+                                                        </h5>
+                                                        <span className="text-xs bg-brand-100 text-brand-700 px-2 py-1 rounded-full font-mono">
+                                                            رقم الإيصال: EC-{new Date(stop.collection_details.collection_time || Date.now()).getFullYear()}-{stop.hospital_id?.slice(-3).toUpperCase() || '000'}-{Date.parse(stop.collection_details.collection_time || Date.now()).toString().slice(-5)}
+                                                        </span>
+                                                    </div>
                                                     
                                                     {/* Waste Types */}
                                                     <div className="mb-3">
@@ -399,18 +472,24 @@ const RouteDetails = () => {
                                                     </div>
 
                                                     {/* Safety Box */}
-                                                    {(stop.collection_details.safety_box_bags > 0 || stop.collection_details.safety_box_count > 0) && (
+                                                    {(stop.collection_details.safety_box_count > 0 || stop.collection_details.safety_box_weight > 0) && (
                                                         <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                                                            <p className="text-sm font-medium text-amber-800 mb-1">📦 صناديق الأمانة:</p>
+                                                            <p className="text-sm font-medium text-amber-800 mb-1">📦 سيفتي بوكس Safety Box:</p>
                                                             <div className="grid grid-cols-2 gap-4 text-sm">
-                                                                <div>
-                                                                    <span className="text-amber-700">عدد الأكياس: </span>
-                                                                    <span className="font-medium text-amber-900">{stop.collection_details.safety_box_bags || 0}</span>
-                                                                </div>
                                                                 <div>
                                                                     <span className="text-amber-700">عدد الصناديق: </span>
                                                                     <span className="font-medium text-amber-900">{stop.collection_details.safety_box_count || 0}</span>
                                                                 </div>
+                                                                <div>
+                                                                    <span className="text-amber-700">الوزن: </span>
+                                                                    <span className="font-medium text-amber-900">{stop.collection_details.safety_box_weight || 0} كجم</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="mt-2 pt-2 border-t border-amber-200">
+                                                                <span className="text-amber-800 font-medium">الوزن الكلي: </span>
+                                                                <span className="font-bold text-amber-900">
+                                                                    {((stop.collection_details.total_weight || 0) + (stop.collection_details.safety_box_weight || 0)).toFixed(2)} كجم
+                                                                </span>
                                                             </div>
                                                         </div>
                                                     )}
@@ -523,6 +602,7 @@ const RouteDetails = () => {
                     </div>
                 )}
             </div>
+            )}
 
             {/* Additional Info */}
             {route.notes && (

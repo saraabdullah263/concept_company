@@ -77,10 +77,11 @@ const SignatureModal = ({ isOpen, onClose, stopId, routeId, hospitalName, curren
             return;
         }
 
+        // استخدام موقع افتراضي لو مش متاح
         if (!currentLocation) {
-            alert('الرجاء تفعيل خدمة الموقع');
-            return;
+            console.warn('Location not available, using default');
         }
+        const locationData = currentLocation || { lat: 0, lng: 0, accuracy: 0 };
 
         try {
             setIsSaving(true);
@@ -124,7 +125,7 @@ const SignatureModal = ({ isOpen, onClose, stopId, routeId, hospitalName, curren
                 .update({
                     hospital_signature: { url: signatureUrl },
                     signature_time: now,
-                    signature_location: currentLocation
+                    signature_location: locationData
                 })
                 .eq('id', stopId);
 
@@ -136,7 +137,7 @@ const SignatureModal = ({ isOpen, onClose, stopId, routeId, hospitalName, curren
                 route_stop_id: stopId,
                 event_type: 'signature_taken',
                 event_time: now,
-                location: currentLocation,
+                location: locationData,
                 data: { signature_url: signatureUrl }
             });
 

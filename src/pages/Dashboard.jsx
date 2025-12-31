@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
     Users, FileText, Truck, DollarSign,
     TrendingUp, TrendingDown, AlertCircle,
-    Package, Calendar, CheckCircle, Clock
+    Package, Calendar, CheckCircle, Clock, Flame
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -20,7 +20,10 @@ const Dashboard = () => {
         totalExpenses: 0,
         activeHospitals: 0,
         myRoutesToday: 0,
-        myPendingRoutes: 0
+        myPendingRoutes: 0,
+        incineratorDue: 0,
+        incineratorPaid: 0,
+        incineratorBalance: 0
     });
     const [loading, setLoading] = useState(true);
 
@@ -74,19 +77,26 @@ const Dashboard = () => {
             // البيانات العامة للأدوار الأخرى
             setLoading(false);
 
-            const [routes, vehicles, contracts, invoices, expenses, hospitals] = await Promise.all([
+            const [routes, vehicles, contracts, invoices, expenses, hospitals, incineratorDeliveries, incineratorPayments] = await Promise.all([
                 supabase.from('routes').select('id, status'),
                 supabase.from('vehicles').select('id').eq('is_active', true),
                 supabase.from('contracts').select('id').eq('status', 'active'),
                 supabase.from('invoices').select('id, total_amount, status'),
                 supabase.from('expenses').select('id, amount'),
-                supabase.from('hospitals').select('id').eq('is_active', true)
+                supabase.from('hospitals').select('id').eq('is_active', true),
+                supabase.from('incinerator_deliveries').select('total_cost'),
+                supabase.from('incinerator_payments').select('amount')
             ]);
 
             const completedRoutes = routes.data?.filter(r => r.status === 'completed') || [];
-            const pendingInvoices = invoices.data?.filter(inv => inv.status === 'pending') || [];
+            const pendingInvoices = invoices.data?.filter(inv => inv.status !== 'paid') || [];
             const totalRevenue = pendingInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
             const totalExpenses = expenses.data?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
+            
+            // حسابات المحارق
+            const incineratorDue = incineratorDeliveries.data?.reduce((sum, d) => sum + (d.total_cost || 0), 0) || 0;
+            const incineratorPaid = incineratorPayments.data?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+            const incineratorBalance = incineratorDue - incineratorPaid;
 
             setStats({
                 totalRoutes: routes.data?.length || 0,
@@ -96,7 +106,10 @@ const Dashboard = () => {
                 pendingInvoices: pendingInvoices.length,
                 totalRevenue,
                 totalExpenses,
-                activeHospitals: hospitals.data?.length || 0
+                activeHospitals: hospitals.data?.length || 0,
+                incineratorDue,
+                incineratorPaid,
+                incineratorBalance
             });
         } catch (error) {
             console.error('Error:', error);
@@ -287,10 +300,48 @@ const Dashboard = () => {
                 </div>
             </div>
 
+            {/* Incinerator Stats */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Link to="/incinerator-accounts" className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl p-6 border border-orange-200 hover:shadow-lg transition-shadow">
+                    <div className="flex items-center gap-3 mb-4">
+                        <Flame className="w-8 h-8 text-orange-600" />
+                        <div>
+                            <p className="text-sm text-orange-700 font-medium">مستحقات المحارق</p>
+                            <p className="text-2xl font-bold text-orange-900">{stats.incineratorDue.toLocaleString()} ج.م</p>
+                        </div>
+                    </div>
+                    <div className="text-xs text-orange-600">إجمالي تكلفة التسليمات</div>
+                </Link>
+
+                <Link to="/incinerator-accounts" className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-2xl p-6 border border-teal-200 hover:shadow-lg transition-shadow">
+                    <div className="flex items-center gap-3 mb-4">
+                        <DollarSign className="w-8 h-8 text-teal-600" />
+                        <div>
+                            <p className="text-sm text-teal-700 font-medium">المدفوع للمحارق</p>
+                            <p className="text-2xl font-bold text-teal-900">{stats.incineratorPaid.toLocaleString()} ج.م</p>
+                        </div>
+                    </div>
+                    <div className="text-xs text-teal-600">إجمالي المدفوعات</div>
+                </Link>
+
+                <Link to="/incinerator-accounts" className={`bg-gradient-to-br ${stats.incineratorBalance > 0 ? 'from-rose-50 to-rose-100 border-rose-200' : 'from-emerald-50 to-emerald-100 border-emerald-200'} rounded-2xl p-6 border hover:shadow-lg transition-shadow`}>
+                    <div className="flex items-center gap-3 mb-4">
+                        <Flame className={`w-8 h-8 ${stats.incineratorBalance > 0 ? 'text-rose-600' : 'text-emerald-600'}`} />
+                        <div>
+                            <p className={`text-sm ${stats.incineratorBalance > 0 ? 'text-rose-700' : 'text-emerald-700'} font-medium`}>رصيد المحارق</p>
+                            <p className={`text-2xl font-bold ${stats.incineratorBalance > 0 ? 'text-rose-900' : 'text-emerald-900'}`}>{stats.incineratorBalance.toLocaleString()} ج.م</p>
+                        </div>
+                    </div>
+                    <div className={`text-xs ${stats.incineratorBalance > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                        {stats.incineratorBalance > 0 ? 'مبلغ متبقي للدفع' : 'لا يوجد مستحقات'}
+                    </div>
+                </Link>
+            </div>
+
             {/* Quick Actions */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">إجراءات سريعة</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <Link to="/routes" className="flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-gray-200 hover:border-brand-400 hover:bg-brand-50 transition-all group">
                         <div className="p-3 bg-brand-100 rounded-full group-hover:bg-brand-600 transition-colors">
                             <Truck className="w-6 h-6 text-brand-600 group-hover:text-white" />
@@ -310,6 +361,13 @@ const Dashboard = () => {
                             <DollarSign className="w-6 h-6 text-red-600 group-hover:text-white" />
                         </div>
                         <span className="text-sm font-medium text-gray-700 group-hover:text-red-700">مصروف جديد</span>
+                    </Link>
+
+                    <Link to="/incinerator-accounts" className="flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-gray-200 hover:border-orange-400 hover:bg-orange-50 transition-all group">
+                        <div className="p-3 bg-orange-100 rounded-full group-hover:bg-orange-600 transition-colors">
+                            <Flame className="w-6 h-6 text-orange-600 group-hover:text-white" />
+                        </div>
+                        <span className="text-sm font-medium text-gray-700 group-hover:text-orange-700">حسابات المحارق</span>
                     </Link>
 
                     <Link to="/reports" className="flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-all group">

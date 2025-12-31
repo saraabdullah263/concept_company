@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabase';
 import { Link } from 'react-router-dom';
-import { Loader2, ArrowRight, TrendingUp, TrendingDown, DollarSign, FileText, AlertCircle, Calendar, Clock } from 'lucide-react';
+import { Loader2, ArrowRight, TrendingUp, TrendingDown, DollarSign, FileText, AlertCircle, Calendar, Clock, Flame } from 'lucide-react';
 
 const Accounting = () => {
     const [loading, setLoading] = useState(true);
@@ -11,7 +11,12 @@ const Accounting = () => {
         totalExpenses: 0,
         netProfit: 0,
         recentInvoices: [],
-        recentExpenses: []
+        recentExpenses: [],
+        incineratorStats: {
+            totalDue: 0,
+            totalPaid: 0,
+            balance: 0
+        }
     });
 
     useEffect(() => {
@@ -46,6 +51,18 @@ const Accounting = () => {
                 .order('expense_date', { ascending: false })
                 .limit(5);
 
+            // Fetch incinerator stats
+            const { data: deliveriesData } = await supabase
+                .from('incinerator_deliveries')
+                .select('total_cost');
+            
+            const { data: paymentsData } = await supabase
+                .from('incinerator_payments')
+                .select('amount');
+
+            const incineratorTotalDue = (deliveriesData || []).reduce((sum, d) => sum + (d.total_cost || 0), 0);
+            const incineratorTotalPaid = (paymentsData || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+
             // Calculate Stats from ALL data
             const allInvoices = allInvoicesData || [];
             const allExpenses = allExpensesData || [];
@@ -55,7 +72,7 @@ const Accounting = () => {
                 .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
 
             const pendingRevenue = allInvoices
-                .filter(inv => inv.status === 'pending' || inv.status === 'overdue')
+                .filter(inv => inv.status !== 'paid')
                 .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
 
             const totalExpenses = allExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
@@ -66,7 +83,12 @@ const Accounting = () => {
                 totalExpenses,
                 netProfit: totalRevenue - totalExpenses,
                 recentInvoices: invoices || [],
-                recentExpenses: expenses || []
+                recentExpenses: expenses || [],
+                incineratorStats: {
+                    totalDue: incineratorTotalDue,
+                    totalPaid: incineratorTotalPaid,
+                    balance: incineratorTotalDue - incineratorTotalPaid
+                }
             });
         } catch (error) {
             console.error('Error fetching accounting data:', error);
@@ -135,6 +157,42 @@ const Accounting = () => {
                     <p className={`text-3xl font-bold ${stats.netProfit >= 0 ? 'text-blue-900' : 'text-gray-900'}`}>{stats.netProfit.toLocaleString()}</p>
                     <p className={`text-sm ${stats.netProfit >= 0 ? 'text-blue-700' : 'text-gray-700'} mt-1`}>جنيه مصري</p>
                 </div>
+            </div>
+
+            {/* Incinerator Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Link to="/incinerator-accounts" className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 border border-orange-200 hover:shadow-lg transition-shadow">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="p-3 bg-orange-500 rounded-lg text-white">
+                            <Flame className="w-6 h-6" />
+                        </div>
+                        <span className="text-xs text-orange-700 font-medium">مستحقات المحارق</span>
+                    </div>
+                    <p className="text-3xl font-bold text-orange-900">{stats.incineratorStats.totalDue.toLocaleString()}</p>
+                    <p className="text-sm text-orange-700 mt-1">جنيه مصري</p>
+                </Link>
+
+                <Link to="/incinerator-accounts" className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl p-6 border border-teal-200 hover:shadow-lg transition-shadow">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="p-3 bg-teal-500 rounded-lg text-white">
+                            <DollarSign className="w-6 h-6" />
+                        </div>
+                        <span className="text-xs text-teal-700 font-medium">المدفوع للمحارق</span>
+                    </div>
+                    <p className="text-3xl font-bold text-teal-900">{stats.incineratorStats.totalPaid.toLocaleString()}</p>
+                    <p className="text-sm text-teal-700 mt-1">جنيه مصري</p>
+                </Link>
+
+                <Link to="/incinerator-accounts" className={`bg-gradient-to-br ${stats.incineratorStats.balance > 0 ? 'from-rose-50 to-rose-100 border-rose-200' : 'from-emerald-50 to-emerald-100 border-emerald-200'} rounded-xl p-6 border hover:shadow-lg transition-shadow`}>
+                    <div className="flex items-center justify-between mb-4">
+                        <div className={`p-3 ${stats.incineratorStats.balance > 0 ? 'bg-rose-500' : 'bg-emerald-500'} rounded-lg text-white`}>
+                            <Flame className="w-6 h-6" />
+                        </div>
+                        <span className={`text-xs ${stats.incineratorStats.balance > 0 ? 'text-rose-700' : 'text-emerald-700'} font-medium`}>رصيد المحارق المتبقي</span>
+                    </div>
+                    <p className={`text-3xl font-bold ${stats.incineratorStats.balance > 0 ? 'text-rose-900' : 'text-emerald-900'}`}>{stats.incineratorStats.balance.toLocaleString()}</p>
+                    <p className={`text-sm ${stats.incineratorStats.balance > 0 ? 'text-rose-700' : 'text-emerald-700'} mt-1`}>جنيه مصري</p>
+                </Link>
             </div>
 
             {/* Recent Activity */}
@@ -212,7 +270,7 @@ const Accounting = () => {
             {/* Quick Actions */}
             <div className="bg-brand-50 border border-brand-100 rounded-xl p-6">
                 <h3 className="font-bold text-brand-900 mb-4">إجراءات سريعة</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <Link
                         to="/invoices"
                         className="flex items-center gap-3 p-4 bg-white rounded-lg border border-brand-200 hover:border-brand-400 transition-colors group"
@@ -222,7 +280,7 @@ const Accounting = () => {
                         </div>
                         <div>
                             <p className="font-medium text-gray-900">إضافة فاتورة جديدة</p>
-                            <p className="text-xs text-gray-500">إنشاء فاتورة لأحد المستشفيات</p>
+                            <p className="text-xs text-gray-500">إنشاء فاتورة لأحد العملاء</p>
                         </div>
                     </Link>
 
@@ -236,6 +294,19 @@ const Accounting = () => {
                         <div>
                             <p className="font-medium text-gray-900">تسجيل مصروف</p>
                             <p className="text-xs text-gray-500">إضافة مصروف تشغيلي جديد</p>
+                        </div>
+                    </Link>
+
+                    <Link
+                        to="/incinerator-accounts"
+                        className="flex items-center gap-3 p-4 bg-white rounded-lg border border-brand-200 hover:border-brand-400 transition-colors group"
+                    >
+                        <div className="p-2 bg-orange-100 rounded-lg text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors">
+                            <Flame className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <p className="font-medium text-gray-900">حسابات المحارق</p>
+                            <p className="text-xs text-gray-500">إدارة مدفوعات المحارق</p>
                         </div>
                     </Link>
                 </div>

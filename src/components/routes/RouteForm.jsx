@@ -16,14 +16,18 @@ const RouteForm = ({ isOpen, onClose, onSubmit, initialData }) => {
     const { register, control, handleSubmit, reset, watch, formState: { errors } } = useForm({
         defaultValues: {
             route_name: '',
+            route_type: 'collection',
             route_date: format(new Date(), 'yyyy-MM-dd'),
             estimated_start_time: '08:00',
             representative_id: '',
             vehicle_id: '',
             incinerator_id: '',
+            maintenance_details: '',
             stops: []
         }
     });
+
+    const routeType = watch('route_type');
 
     const { fields, append, remove } = useFieldArray({
         control,
@@ -89,11 +93,13 @@ const RouteForm = ({ isOpen, onClose, onSubmit, initialData }) => {
                 } else {
                     reset({
                         route_name: '',
+                        route_type: 'collection',
                         route_date: format(new Date(), 'yyyy-MM-dd'),
                         estimated_start_time: '08:00',
                         representative_id: '',
                         vehicle_id: '',
                         incinerator_id: '',
+                        maintenance_details: '',
                         stops: []
                     });
                 }
@@ -132,6 +138,17 @@ const RouteForm = ({ isOpen, onClose, onSubmit, initialData }) => {
                     <section className="space-y-4">
                         <h3 className="text-lg font-medium text-gray-900 border-b pb-2">بيانات الرحلة</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">نوع الرحلة</label>
+                                <select
+                                    {...register('route_type')}
+                                    className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
+                                >
+                                    <option value="collection">رحلة جمع</option>
+                                    <option value="maintenance">رحلة صيانة</option>
+                                </select>
+                            </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">اسم الرحلة (اختياري)</label>
@@ -192,6 +209,7 @@ const RouteForm = ({ isOpen, onClose, onSubmit, initialData }) => {
                                 {errors.vehicle_id && <p className="mt-1 text-sm text-red-600">{errors.vehicle_id.message}</p>}
                             </div>
 
+                            {routeType !== 'maintenance' && (
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">المحرقة (الوجهة النهائية)</label>
                                 <select
@@ -204,11 +222,25 @@ const RouteForm = ({ isOpen, onClose, onSubmit, initialData }) => {
                                     ))}
                                 </select>
                             </div>
+                            )}
+
+                            {routeType === 'maintenance' && (
+                            <div className="md:col-span-2 lg:col-span-3">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">تفاصيل الصيانة</label>
+                                <textarea
+                                    {...register('maintenance_details')}
+                                    rows={3}
+                                    className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none resize-none"
+                                    placeholder="اكتب تفاصيل الصيانة المطلوبة... مثال: تغيير زيت، فحص الفرامل، إلخ"
+                                />
+                            </div>
+                            )}
 
                         </div>
                     </section>
 
-                    {/* 2. Stops */}
+                    {/* 2. Stops - فقط لرحلات الجمع */}
+                    {routeType === 'collection' && (
                     <section className="space-y-4">
                         <div className="flex items-center justify-between border-b pb-2">
                             <h3 className="text-lg font-medium text-gray-900">محطات الوقوف (العملاء)</h3>
@@ -285,6 +317,7 @@ const RouteForm = ({ isOpen, onClose, onSubmit, initialData }) => {
                             )}
                         </div>
                     </section>
+                    )}
 
                 </form>
 

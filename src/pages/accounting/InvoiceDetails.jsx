@@ -442,7 +442,7 @@ const InvoiceDetails = () => {
             <div className="flex items-center justify-between print:hidden">
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => navigate('/accounting/invoices')}
+                        onClick={() => navigate('/invoices')}
                         className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                     >
                         <ArrowRight className="w-5 h-5" />

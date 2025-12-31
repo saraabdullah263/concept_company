@@ -61,9 +61,16 @@ const RouteCard = ({ route, navigate }) => {
         >
             <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">
-                        {route.route_name || `رحلة ${new Date(route.route_date).toLocaleDateString('ar-EG')}`}
-                    </h3>
+                    <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-lg font-bold text-gray-900">
+                            {route.route_name || `رحلة ${new Date(route.route_date).toLocaleDateString('ar-EG')}`}
+                        </h3>
+                        {route.route_type === 'maintenance' && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                🔧 صيانة
+                            </span>
+                        )}
+                    </div>
                     
                     <div className="flex flex-wrap gap-3 text-sm text-gray-600">
                         <div className="flex items-center gap-2">
@@ -93,8 +100,8 @@ const RouteCard = ({ route, navigate }) => {
                 </div>
             </div>
 
-            {/* Progress Bar for In Progress Routes */}
-            {isInProgress && route.total_weight_collected !== undefined && (
+            {/* Progress Bar for In Progress Routes - فقط لرحلات الجمع */}
+            {route.route_type !== 'maintenance' && isInProgress && route.total_weight_collected !== undefined && (
                 <div className="mb-4">
                     <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
                         <span>التقدم</span>
@@ -103,8 +110,8 @@ const RouteCard = ({ route, navigate }) => {
                 </div>
             )}
 
-            {/* Incinerator Info */}
-            {route.incinerators?.name && (
+            {/* Incinerator Info - فقط لرحلات الجمع */}
+            {route.route_type !== 'maintenance' && route.incinerators?.name && (
                 <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
                     <MapPin className="w-4 h-4 text-purple-600" />
                     <span className="font-medium">المحرقة:</span>
