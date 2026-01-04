@@ -7,13 +7,15 @@ import { format } from 'date-fns';
 import { generateNewContractPDF } from '../../services/pdfGenerator';
 
 const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) => {
-    const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
+    const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm();
     const [hospitals, setHospitals] = useState([]);
     const [selectedHospital, setSelectedHospital] = useState(null);
     const [isPrinting, setIsPrinting] = useState(false);
     const [customClauses, setCustomClauses] = useState([]);
     const [newClauseTitle, setNewClauseTitle] = useState('');
     const [newClauseContent, setNewClauseContent] = useState('');
+    const [hospitalSearch, setHospitalSearch] = useState('');
+    const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
 
     const watchHospitalId = watch('hospital_id');
 
@@ -25,10 +27,32 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                     .select('*')
                     .eq('is_active', true);
                 setHospitals(data || []);
+                
+                // تحديد العميل المختار إذا كان في وضع التعديل
+                if (initialData?.hospital_id && data) {
+                    const hospital = data.find(h => h.id === initialData.hospital_id);
+                    setSelectedHospital(hospital || null);
+                    setHospitalSearch(hospital?.name || '');
+                }
             };
 
             fetchHospitals();
 
+            // Reset البنود المخصصة أولاً
+            if (initialData?.custom_clauses) {
+                try {
+                    const clauses = typeof initialData.custom_clauses === 'string' 
+                        ? JSON.parse(initialData.custom_clauses) 
+                        : initialData.custom_clauses;
+                    setCustomClauses(Array.isArray(clauses) ? clauses : []);
+                } catch {
+                    setCustomClauses([]);
+                }
+            } else {
+                setCustomClauses([]);
+            }
+
+            // Reset النموذج
             reset(initialData || {
                 contract_number: `CON-${Date.now().toString().slice(-6)}`,
                 hospital_id: '',
@@ -46,19 +70,17 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                 custom_clauses: []
             });
             
-            // تحميل البنود المخصصة إذا كانت موجودة
-            if (initialData?.custom_clauses) {
-                try {
-                    const clauses = typeof initialData.custom_clauses === 'string' 
-                        ? JSON.parse(initialData.custom_clauses) 
-                        : initialData.custom_clauses;
-                    setCustomClauses(clauses || []);
-                } catch {
-                    setCustomClauses([]);
-                }
-            } else {
-                setCustomClauses([]);
-            }
+            // Reset حقول البند الجديد
+            setNewClauseTitle('');
+            setNewClauseContent('');
+        } else {
+            // عند إغلاق النموذج، نظف كل شيء
+            setCustomClauses([]);
+            setSelectedHospital(null);
+            setNewClauseTitle('');
+            setNewClauseContent('');
+            setHospitalSearch('');
+            setShowHospitalDropdown(false);
         }
     }, [isOpen, initialData, reset]);
 
@@ -67,8 +89,37 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
         if (watchHospitalId && hospitals.length > 0) {
             const hospital = hospitals.find(h => h.id === watchHospitalId);
             setSelectedHospital(hospital);
+            if (hospital) {
+                setHospitalSearch(hospital.name);
+            }
         }
     }, [watchHospitalId, hospitals]);
+
+    // فلترة العملاء حسب البحث
+    const filteredHospitals = hospitals.filter(h => 
+        h.name.toLowerCase().includes(hospitalSearch.toLowerCase()) ||
+        (h.city && h.city.toLowerCase().includes(hospitalSearch.toLowerCase())) ||
+        (h.governorate && h.governorate.toLowerCase().includes(hospitalSearch.toLowerCase()))
+    );
+
+    // اختيار عميل من القائمة
+    const selectHospital = (hospital) => {
+        setValue('hospital_id', hospital.id);
+        setSelectedHospital(hospital);
+        setHospitalSearch(hospital.name);
+        setShowHospitalDropdown(false);
+    };
+
+    // إغلاق الـ dropdown عند الضغط خارجه
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (!e.target.closest('.hospital-search-container')) {
+                setShowHospitalDropdown(false);
+            }
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
 
     // إضافة بند مخصص جديد
     const addCustomClause = () => {
@@ -168,21 +219,74 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                         </div>
                     </div>
 
-                    {/* اختيار العميل */}
-                    <div>
+                    {/* اختيار العميل مع البحث */}
+                    <div className="relative hospital-search-container">
                         <label className="block text-sm font-medium text-gray-700 mb-1">العميل</label>
-                        <select
-                            {...register('hospital_id', { required: 'العميل مطلوب' })}
-                            className={clsx(
-                                "block w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white",
-                                errors.hospital_id ? "border-red-300 bg-red-50" : "border-gray-200"
+                        <input type="hidden" {...register('hospital_id', { required: 'العميل مطلوب' })} />
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={hospitalSearch}
+                                onChange={(e) => {
+                                    setHospitalSearch(e.target.value);
+                                    setShowHospitalDropdown(true);
+                                    if (!e.target.value) {
+                                        setValue('hospital_id', '');
+                                        setSelectedHospital(null);
+                                    }
+                                }}
+                                onFocus={() => setShowHospitalDropdown(true)}
+                                placeholder="ابحث عن العميل..."
+                                className={clsx(
+                                    "block w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none",
+                                    errors.hospital_id ? "border-red-300 bg-red-50" : "border-gray-200"
+                                )}
+                            />
+                            {hospitalSearch && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setHospitalSearch('');
+                                        setValue('hospital_id', '');
+                                        setSelectedHospital(null);
+                                    }}
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
                             )}
-                        >
-                            <option value="">اختر العميل...</option>
-                            {hospitals.map(h => (
-                                <option key={h.id} value={h.id}>{h.name}</option>
-                            ))}
-                        </select>
+                        </div>
+                        
+                        {/* Dropdown القائمة */}
+                        {showHospitalDropdown && (
+                            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                {filteredHospitals.length > 0 ? (
+                                    filteredHospitals.map(h => (
+                                        <button
+                                            key={h.id}
+                                            type="button"
+                                            onClick={() => selectHospital(h)}
+                                            className={clsx(
+                                                "w-full px-3 py-2 text-right hover:bg-brand-50 transition-colors border-b border-gray-100 last:border-0",
+                                                selectedHospital?.id === h.id && "bg-brand-50"
+                                            )}
+                                        >
+                                            <div className="font-medium text-gray-900">{h.name}</div>
+                                            {(h.city || h.governorate) && (
+                                                <div className="text-xs text-gray-500">
+                                                    {h.city}{h.city && h.governorate && ' - '}{h.governorate}
+                                                </div>
+                                            )}
+                                        </button>
+                                    ))
+                                ) : (
+                                    <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                                        لا يوجد عملاء مطابقين
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {errors.hospital_id && <p className="mt-1 text-sm text-red-600">{errors.hospital_id.message}</p>}
                     </div>
 
                     {/* بيانات العميل الإضافية */}

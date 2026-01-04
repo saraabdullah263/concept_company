@@ -553,26 +553,6 @@ const Reports = () => {
         window.print();
     };
 
-    // Helper function to style Excel sheets
-    const styleSheet = (ws, headerRow = 0) => {
-        // Set column widths
-        const colWidths = [];
-        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-            let maxWidth = 10;
-            for (let R = range.s.r; R <= range.e.r; ++R) {
-                const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
-                if (cell && cell.v) {
-                    const cellWidth = String(cell.v).length + 2;
-                    if (cellWidth > maxWidth) maxWidth = Math.min(cellWidth, 40);
-                }
-            }
-            colWidths.push({ wch: maxWidth });
-        }
-        ws['!cols'] = colWidths;
-        return ws;
-    };
-
     const handleExport = async () => {
         if (!reportData) return;
         

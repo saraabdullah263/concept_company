@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { supabase } from '../../services/supabase';
 import { Loader2, X, Plus, Trash2, MapPin } from 'lucide-react';
-import clsx from 'clsx';
 import { format } from 'date-fns';
 
 const RouteForm = ({ isOpen, onClose, onSubmit, initialData }) => {

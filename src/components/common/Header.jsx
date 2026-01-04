@@ -1,6 +1,6 @@
 import { Bell, Menu, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { notificationService } from '../../services/notificationService';
 
 // Audio Context للصوت

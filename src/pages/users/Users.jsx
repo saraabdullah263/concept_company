@@ -5,7 +5,7 @@ import { Plus, Search, Loader2, User, Mail, Phone, Shield, Edit, Trash2, X, Cale
 const Users = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm] = useState('');
 
     // Minimal "Add User" Form State (inline for speed)
     const [showForm, setShowForm] = useState(false);

@@ -3,7 +3,7 @@ import { ar } from 'date-fns/locale';
 import { Truck, User, MapPin, Clock, MoreVertical, Edit, Trash2, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const RouteList = ({ routes, onEdit, onDelete }) => {
+const RouteList = ({ routes, onEdit }) => {
     const getStatusColor = (status) => {
         switch (status) {
             case 'completed': return 'bg-green-100 text-green-800';

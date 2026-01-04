@@ -38,7 +38,7 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <AuthProvider>
-      <Router basename="/concept_company">
+      <Router basename={import.meta.env.VITE_BASE_URL || '/'}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/setup" element={<Setup />} />

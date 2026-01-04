@@ -60,7 +60,7 @@ const PhotoUploadModal = ({ isOpen, onClose, stopId, routeId, currentLocation, o
                 const fileName = `${stopId}_${Date.now()}.${fileExt}`;
                 const filePath = `route-photos/${fileName}`;
 
-                const { error: uploadError, data: uploadData } = await supabase.storage
+                const { error: uploadError } = await supabase.storage
                     .from('medical-waste')
                     .upload(filePath, selectedFile, {
                         cacheControl: '3600',

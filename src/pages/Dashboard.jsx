@@ -25,7 +25,7 @@ const Dashboard = () => {
         incineratorPaid: 0,
         incineratorBalance: 0
     });
-    const [loading, setLoading] = useState(true);
+    const [_loading, setLoading] = useState(true);
 
     useEffect(() => {
         // لا تحمل البيانات حتى يتم تحميل role المستخدم

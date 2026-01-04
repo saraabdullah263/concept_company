@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  app:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - "3000:5173"
+    environment:
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+      - VITE_BASE_URL=/
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"

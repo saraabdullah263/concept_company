@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Save, Bell, Database, Globe, Loader2, AlertTriangle } from 'lucide-react';
 import ToggleSwitch from '../../components/common/ToggleSwitch';
-import { supabase } from '../../services/supabase';
 
 const Settings = () => {
     const [settings, setSettings] = useState({

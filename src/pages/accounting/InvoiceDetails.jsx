@@ -298,7 +298,7 @@ const InvoiceDetails = () => {
                 <div class="header">
                     <img src="${logoUrl}" alt="Concept Eco Care" style="height: 80px; margin-bottom: 10px;" />
                     <h1>Concept Eco Care</h1>
-                    <h2>فاتورة ضريبية</h2>
+                    <h2>فاتورة</h2>
                 </div>
 
                 <div class="info-grid">
@@ -469,7 +469,7 @@ const InvoiceDetails = () => {
                 {/* Company Header */}
                 <div className="text-center mb-8 pb-6 border-b-2 border-gray-200">
                     <h2 className="text-3xl font-bold text-brand-600 mb-2">Concept Eco Care</h2>
-                    <p className="text-gray-600">فاتورة ضريبية</p>
+                    <p className="text-gray-600">فاتورة</p>
                 </div>
 
                 {/* Invoice Info Grid */}

@@ -252,7 +252,7 @@ const RouteDetails = () => {
                     </div>
                     <div className="p-4">
                         <div className="space-y-3">
-                            {deliveries.map((delivery, index) => {
+                            {deliveries.map((delivery) => {
                                 // حساب الوزن الكلي المسلم (أكياس + سيفتي بوكس)
                                 const safetyBoxWeight = route.route_stops?.reduce((sum, stop) => sum + (parseFloat(stop.collection_details?.safety_box_weight) || 0), 0) || 0;
                                 const totalDeliveredWeight = parseFloat(delivery.weight_delivered) + safetyBoxWeight;
@@ -399,7 +399,7 @@ const RouteDetails = () => {
                     <div className="divide-y divide-gray-100">
                         {route.route_stops
                             .sort((a, b) => a.stop_order - b.stop_order)
-                            .map((stop, index) => (
+                            .map((stop) => (
                                 <div key={stop.id} className="p-4 hover:bg-gray-50 transition-colors">
                                     <div className="flex items-start gap-4">
                                         <div className="flex-shrink-0">
