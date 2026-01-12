@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { supabase } from '../../services/supabase';
 import { Loader2, X, Plus, Trash2, MapPin } from 'lucide-react';
-import clsx from 'clsx';
 import { format } from 'date-fns';
 
 const RouteForm = ({ isOpen, onClose, onSubmit, initialData }) => {
@@ -136,35 +135,36 @@ const RouteForm = ({ isOpen, onClose, onSubmit, initialData }) => {
                 <form onSubmit={handleSubmit(onFormSubmit)} className="flex-1 overflow-y-auto p-6 space-y-8">
                     {/* 1. Basic Info */}
                     <section className="space-y-4">
-                        <h3 className="text-lg font-medium text-gray-900 border-b pb-2">بيانات الرحلة</h3>
+                        <h3 className="text-lg font-medium text-gray-900 border-b pb-2">بيانات خط السير</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">نوع الرحلة</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">نوع خط السير</label>
                                 <select
                                     {...register('route_type')}
                                     className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
                                 >
-                                    <option value="collection">رحلة جمع</option>
-                                    <option value="maintenance">رحلة صيانة</option>
+                                    <option value="collection">خط جمع</option>
+                                    <option value="maintenance">خط صيانة</option>
                                 </select>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">اسم الرحلة (اختياري)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">اسم خط السير (اختياري)</label>
                                 <input
                                     type="text"
                                     {...register('route_name')}
                                     className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
-                                    placeholder="مثال: رحلة الصباح - وسط البلد"
+                                    placeholder="مثال: خط الصباح - وسط البلد"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">تاريخ الرحلة</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">تاريخ خط السير</label>
                                 <input
                                     type="date"
                                     {...register('route_date', { required: 'التاريخ مطلوب' })}
+                                    min={format(new Date(), 'yyyy-MM-dd')}
                                     className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
                                 />
                                 {errors.route_date && <p className="mt-1 text-sm text-red-600">{errors.route_date.message}</p>}
@@ -211,16 +211,25 @@ const RouteForm = ({ isOpen, onClose, onSubmit, initialData }) => {
 
                             {routeType !== 'maintenance' && (
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">المحرقة (الوجهة النهائية)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    المحرقة (الوجهة النهائية) <span className="text-red-500">*</span>
+                                </label>
                                 <select
-                                    {...register('incinerator_id')}
-                                    className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
+                                    {...register('incinerator_id', { 
+                                        required: routeType !== 'maintenance' ? 'المحرقة مطلوبة' : false 
+                                    })}
+                                    className={`block w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white ${
+                                        errors.incinerator_id ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                                    }`}
                                 >
-                                    <option value="">اختر المحرقة (اختياري)...</option>
+                                    <option value="">اختر المحرقة...</option>
                                     {incinerators.map(inc => (
                                         <option key={inc.id} value={inc.id}>{inc.name}</option>
                                     ))}
                                 </select>
+                                {errors.incinerator_id && (
+                                    <p className="mt-1 text-sm text-red-600">{errors.incinerator_id.message}</p>
+                                )}
                             </div>
                             )}
 
@@ -335,7 +344,7 @@ const RouteForm = ({ isOpen, onClose, onSubmit, initialData }) => {
                         className="inline-flex items-center px-6 py-2 text-sm font-medium text-white bg-brand-600 border border-transparent rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                         {isSubmitting && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
-                        حفظ الرحلة
+                        حفظ خط السير
                     </button>
                 </div>
             </div>

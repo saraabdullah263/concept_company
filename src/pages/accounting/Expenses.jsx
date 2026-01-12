@@ -8,6 +8,7 @@ const Expenses = () => {
     const [expenses, setExpenses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [showCancelled, setShowCancelled] = useState(false);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingExpense, setEditingExpense] = useState(null);
@@ -21,6 +22,11 @@ const Expenses = () => {
                 .from('expenses')
                 .select('*')
                 .order('expense_date', { ascending: false });
+
+            // فلتر حسب الحالة
+            if (!showCancelled) {
+                query = query.neq('status', 'cancelled');
+            }
 
             if (searchTerm) {
                 query = query.ilike('description', `%${searchTerm}%`);
@@ -38,7 +44,7 @@ const Expenses = () => {
 
     useEffect(() => {
         fetchExpenses();
-    }, [searchTerm]);
+    }, [searchTerm, showCancelled]);
 
     const handleEdit = (expense) => {
         setEditingExpense(expense);
@@ -83,8 +89,10 @@ const Expenses = () => {
         }
     };
 
-    // Calculate Total
-    const totalAmount = expenses.reduce((sum, current) => sum + (parseFloat(current.amount) || 0), 0);
+    // Calculate Total (only active expenses)
+    const totalAmount = expenses
+        .filter(e => e.status !== 'cancelled')
+        .reduce((sum, current) => sum + (parseFloat(current.amount) || 0), 0);
 
     return (
         <div className="space-y-6">
@@ -103,7 +111,7 @@ const Expenses = () => {
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative">
                     <Search className="absolute right-7 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
@@ -114,8 +122,20 @@ const Expenses = () => {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3">
+                    <input
+                        type="checkbox"
+                        id="showCancelled"
+                        checked={showCancelled}
+                        onChange={(e) => setShowCancelled(e.target.checked)}
+                        className="w-4 h-4 text-brand-600 border-gray-300 rounded focus:ring-brand-500"
+                    />
+                    <label htmlFor="showCancelled" className="text-sm text-gray-700 cursor-pointer">
+                        عرض المصاريف الملغاة
+                    </label>
+                </div>
                 <div className="bg-brand-50 rounded-xl p-4 border border-brand-100 flex items-center justify-between">
-                    <span className="text-brand-800 font-medium">الإجمالي</span>
+                    <span className="text-brand-800 font-medium">الإجمالي (النشط)</span>
                     <span className="text-2xl font-bold text-brand-700">{totalAmount.toLocaleString()} <span className="text-sm">ج.م</span></span>
                 </div>
             </div>

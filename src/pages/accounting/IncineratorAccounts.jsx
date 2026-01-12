@@ -45,9 +45,8 @@ const IncineratorAccounts = () => {
             
             if (error) throw error;
             setIncinerators(data || []);
-            if (data && data.length > 0) {
-                setSelectedIncinerator(data[0]);
-            }
+            // اختيار "الكل" كخيار افتراضي
+            setSelectedIncinerator({ id: 'all', name: 'جميع المحارق' });
         } catch (error) {
             console.error('Error fetching incinerators:', error);
         } finally {
@@ -64,8 +63,12 @@ const IncineratorAccounts = () => {
             let deliveriesQuery = supabase
                 .from('incinerator_deliveries')
                 .select('*, routes(route_date)')
-                .eq('incinerator_id', incineratorId)
                 .order('created_at', { ascending: false });
+
+            // فلترة بالمحرقة إذا لم يكن "الكل"
+            if (incineratorId !== 'all') {
+                deliveriesQuery = deliveriesQuery.eq('incinerator_id', incineratorId);
+            }
 
             if (dateFilter.from) {
                 deliveriesQuery = deliveriesQuery.gte('created_at', dateFilter.from);
@@ -81,8 +84,12 @@ const IncineratorAccounts = () => {
             let paymentsQuery = supabase
                 .from('incinerator_payments')
                 .select('*')
-                .eq('incinerator_id', incineratorId)
                 .order('payment_date', { ascending: false });
+
+            // فلترة بالمحرقة إذا لم يكن "الكل"
+            if (incineratorId !== 'all') {
+                paymentsQuery = paymentsQuery.eq('incinerator_id', incineratorId);
+            }
 
             if (dateFilter.from) {
                 paymentsQuery = paymentsQuery.gte('payment_date', dateFilter.from);
@@ -94,27 +101,39 @@ const IncineratorAccounts = () => {
             const { data: paymentsData, error: paymentsError } = await paymentsQuery;
             if (paymentsError) throw paymentsError;
 
+            // إضافة أسماء المحارق للبيانات
+            const enrichedDeliveries = (deliveriesData || []).map(d => {
+                const inc = incinerators.find(i => i.id === d.incinerator_id);
+                return { ...d, incinerator_name: inc?.name || 'غير محدد' };
+            });
+
+            const enrichedPayments = (paymentsData || []).map(p => {
+                const inc = incinerators.find(i => i.id === p.incinerator_id);
+                return { ...p, incinerator_name: inc?.name || 'غير محدد' };
+            });
+
             // حساب الإجماليات
-            const totalDelivered = (deliveriesData || []).reduce((sum, d) => sum + (d.weight_delivered || 0), 0);
+            const totalDelivered = enrichedDeliveries.reduce((sum, d) => sum + (d.weight_delivered || 0), 0);
             // حساب التكلفة: لو total_cost موجود استخدمه، لو لأ احسبه من الوزن × سعر الكيلو
-            const totalCost = (deliveriesData || []).reduce((sum, d) => {
+            const totalCost = enrichedDeliveries.reduce((sum, d) => {
                 if (d.total_cost) return sum + d.total_cost;
                 // لو مفيش total_cost، احسبه من الوزن × سعر الكيلو للمحرقة
-                const costPerKg = selectedIncinerator?.cost_per_kg || 0;
+                const inc = incinerators.find(i => i.id === d.incinerator_id);
+                const costPerKg = inc?.cost_per_kg || 0;
                 return sum + ((d.weight_delivered || 0) * costPerKg);
             }, 0);
-            const totalPaid = (paymentsData || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+            const totalPaid = enrichedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
             const balance = totalCost - totalPaid;
 
-            setDeliveries(deliveriesData || []);
-            setPayments(paymentsData || []);
+            setDeliveries(enrichedDeliveries);
+            setPayments(enrichedPayments);
             setAccountData({
                 totalDelivered,
                 totalCost,
                 totalPaid,
                 balance,
-                deliveriesCount: (deliveriesData || []).length,
-                paymentsCount: (paymentsData || []).length
+                deliveriesCount: enrichedDeliveries.length,
+                paymentsCount: enrichedPayments.length
             });
         } catch (error) {
             console.error('Error fetching account data:', error);
@@ -201,13 +220,18 @@ const IncineratorAccounts = () => {
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">اختر المحرقة</label>
                         <select
-                            value={selectedIncinerator?.id || ''}
+                            value={selectedIncinerator?.id || 'all'}
                             onChange={(e) => {
-                                const inc = incinerators.find(i => i.id === e.target.value);
-                                setSelectedIncinerator(inc);
+                                if (e.target.value === 'all') {
+                                    setSelectedIncinerator({ id: 'all', name: 'جميع المحارق' });
+                                } else {
+                                    const inc = incinerators.find(i => i.id === e.target.value);
+                                    setSelectedIncinerator(inc);
+                                }
                             }}
                             className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
                         >
+                            <option value="all">جميع المحارق</option>
                             {incinerators.map(inc => (
                                 <option key={inc.id} value={inc.id}>{inc.name}</option>
                             ))}
@@ -292,15 +316,17 @@ const IncineratorAccounts = () => {
                     </div>
 
                     {/* Payment Button */}
-                    <div className="flex justify-end">
-                        <button
-                            onClick={openPaymentModal}
-                            className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors shadow-sm"
-                        >
-                            <Plus className="w-5 h-5" />
-                            <span>تسجيل دفعة جديدة</span>
-                        </button>
-                    </div>
+                    {selectedIncinerator?.id !== 'all' && (
+                        <div className="flex justify-end">
+                            <button
+                                onClick={openPaymentModal}
+                                className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors shadow-sm"
+                            >
+                                <Plus className="w-5 h-5" />
+                                <span>تسجيل دفعة جديدة</span>
+                            </button>
+                        </div>
+                    )}
 
 
                     {/* Tables Section */}
@@ -326,6 +352,9 @@ const IncineratorAccounts = () => {
                                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">التاريخ</th>
                                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">المبلغ</th>
                                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">الطريقة</th>
+                                                {selectedIncinerator?.id === 'all' && (
+                                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">المحرقة</th>
+                                                )}
                                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">المرجع</th>
                                             </tr>
                                         </thead>
@@ -339,6 +368,9 @@ const IncineratorAccounts = () => {
                                                             {getPaymentMethodLabel(payment.payment_method)}
                                                         </span>
                                                     </td>
+                                                    {selectedIncinerator?.id === 'all' && (
+                                                        <td className="px-4 py-3 text-sm text-gray-600">{payment.incinerator_name}</td>
+                                                    )}
                                                     <td className="px-4 py-3 text-sm text-gray-500">{payment.reference_number || '-'}</td>
                                                 </tr>
                                             ))}
@@ -369,6 +401,9 @@ const IncineratorAccounts = () => {
                                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">التاريخ</th>
                                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">الوزن</th>
                                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">سعر الكيلو</th>
+                                                {selectedIncinerator?.id === 'all' && (
+                                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">المحرقة</th>
+                                                )}
                                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">الإجمالي</th>
                                             </tr>
                                         </thead>
@@ -380,6 +415,9 @@ const IncineratorAccounts = () => {
                                                     </td>
                                                     <td className="px-4 py-3 text-sm text-gray-600">{delivery.weight_delivered?.toLocaleString()} كجم</td>
                                                     <td className="px-4 py-3 text-sm text-gray-600">{delivery.cost_per_kg?.toLocaleString()} ج.م</td>
+                                                    {selectedIncinerator?.id === 'all' && (
+                                                        <td className="px-4 py-3 text-sm text-gray-600">{delivery.incinerator_name}</td>
+                                                    )}
                                                     <td className="px-4 py-3 text-sm font-bold text-orange-600">{delivery.total_cost?.toLocaleString()} ج.م</td>
                                                 </tr>
                                             ))}

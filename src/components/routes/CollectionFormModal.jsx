@@ -154,11 +154,21 @@ const CollectionFormModal = ({ isOpen, onClose, stop, routeId, route, currentLoc
                 data: collectionData
             });
 
-            // إنشاء رقم إيصال مرتبط برقم العميل
-            // Format: EC-YYYY-XXX-NNNNN (XXX = آخر 3 أرقام من رقم العميل، NNNNN = رقم تسلسلي)
-            const hospitalIdShort = stop.hospital_id ? stop.hospital_id.slice(-3).toUpperCase() : '000';
-            const sequenceNumber = Date.now().toString().slice(-5);
-            const receiptNumber = `EC-${new Date().getFullYear()}-${hospitalIdShort}-${sequenceNumber}`;
+            // تحديث route_stop وإنشاء رقم الإيصال تلقائياً من الـ database
+            // الـ trigger هيولد receipt_number تلقائياً
+            
+            // جلب رقم الإيصال المُولد
+            const { data: updatedStop, error: fetchError } = await supabase
+                .from('route_stops')
+                .select('receipt_number')
+                .eq('id', stop.id)
+                .single();
+
+            if (fetchError) {
+                console.error('Error fetching receipt number:', fetchError);
+            }
+
+            const receiptNumber = updatedStop?.receipt_number || `R${Date.now().toString().slice(-4)}`;
 
             // Store receipt data for printing
             const receiptData = {
@@ -193,7 +203,7 @@ const CollectionFormModal = ({ isOpen, onClose, stop, routeId, route, currentLoc
         setIsPrinting(true);
         
         // Open print window
-        const printWindow = window.open('/concept_company/print-receipt', '_blank');
+        const printWindow = window.open('/print-receipt', '_blank');
         if (!printWindow) {
             alert('الرجاء السماح بفتح النوافذ المنبثقة للطباعة');
         }

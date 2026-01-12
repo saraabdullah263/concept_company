@@ -176,25 +176,71 @@ const Reports = () => {
             .from('invoices')
             .select('*, hospitals(name)')
             .gte('invoice_date', dateFrom)
-            .lte('invoice_date', dateTo);
+            .lte('invoice_date', dateTo)
+            .neq('status', 'cancelled'); // استبعاد الفواتير الملغاة
 
+        // جلب المصاريف العادية (استبعاد الملغاة)
         const { data: expenses } = await supabase
             .from('expenses')
             .select('*')
             .gte('expense_date', dateFrom)
-            .lte('expense_date', dateTo);
+            .lte('expense_date', dateTo)
+            .neq('status', 'cancelled');
+
+        // جلب تكاليف المحارق
+        const { data: allDeliveries, error: deliveriesError } = await supabase
+            .from('incinerator_deliveries')
+            .select(`
+                *,
+                incinerator_id,
+                route_id,
+                routes(route_date)
+            `);
+
+        console.log('All deliveries:', allDeliveries);
+        console.log('Deliveries error:', deliveriesError);
+
+        // جلب أسماء المحارق منفصلة
+        const { data: incinerators } = await supabase
+            .from('incinerators')
+            .select('id, name');
+
+        const incineratorMap = {};
+        incinerators?.forEach(inc => {
+            incineratorMap[inc.id] = inc.name;
+        });
+
+        // إضافة اسم المحرقة لكل تسليم
+        const deliveriesWithNames = allDeliveries?.map(d => ({
+            ...d,
+            incinerators: { name: incineratorMap[d.incinerator_id] || '-' }
+        })) || [];
+
+        // فلترة التسليمات حسب التاريخ
+        const incineratorDeliveries = deliveriesWithNames.filter(d => {
+            const routeDate = d.routes?.route_date;
+            console.log('Route date:', routeDate, 'From:', dateFrom, 'To:', dateTo);
+            return routeDate && routeDate >= dateFrom && routeDate <= dateTo;
+        });
+
+        console.log('Filtered deliveries:', incineratorDeliveries);
 
         const totalRevenue = invoices?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
-        const totalExpenses = expenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
+        const regularExpenses = expenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
+        const incineratorCosts = incineratorDeliveries?.reduce((sum, d) => sum + (d.total_cost || 0), 0) || 0;
+        const totalExpenses = regularExpenses + incineratorCosts;
         const netProfit = totalRevenue - totalExpenses;
 
         return {
             type: 'financial',
             totalRevenue,
             totalExpenses,
+            regularExpenses,
+            incineratorCosts,
             netProfit,
             invoices: invoices || [],
-            expenses: expenses || []
+            expenses: expenses || [],
+            incineratorDeliveries: incineratorDeliveries || []
         };
     };
 
@@ -553,26 +599,6 @@ const Reports = () => {
         window.print();
     };
 
-    // Helper function to style Excel sheets
-    const styleSheet = (ws, headerRow = 0) => {
-        // Set column widths
-        const colWidths = [];
-        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-            let maxWidth = 10;
-            for (let R = range.s.r; R <= range.e.r; ++R) {
-                const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
-                if (cell && cell.v) {
-                    const cellWidth = String(cell.v).length + 2;
-                    if (cellWidth > maxWidth) maxWidth = Math.min(cellWidth, 40);
-                }
-            }
-            colWidths.push({ wch: maxWidth });
-        }
-        ws['!cols'] = colWidths;
-        return ws;
-    };
-
     const handleExport = async () => {
         if (!reportData) return;
         
@@ -656,13 +682,55 @@ const Reports = () => {
                 });
 
                 expSheet.addRow([]);
-                const expTotalRow = expSheet.addRow(['', '', '', 'الإجمالي', reportData.totalExpenses]);
+                const expTotalRow = expSheet.addRow(['', '', '', 'الإجمالي', reportData.regularExpenses]);
                 expTotalRow.eachCell((cell) => { cell.font = { bold: true }; cell.alignment = { horizontal: 'center', vertical: 'middle' }; });
 
                 expSheet.columns = [{ width: 6 }, { width: 14 }, { width: 30 }, { width: 15 }, { width: 15 }];
             }
 
-            // ========== Sheet 3: الملخص ==========
+            // ========== Sheet 3: تكاليف المحارق ==========
+            if (reportData.incineratorDeliveries && reportData.incineratorDeliveries.length > 0) {
+                const incSheet = workbook.addWorksheet('تكاليف المحارق', { views: [{ rightToLeft: true }] });
+
+                incSheet.mergeCells('A1:F1');
+                const incTitleCell = incSheet.getCell('A1');
+                incTitleCell.value = 'التقرير المالي - تكاليف المحارق - ' + companyName;
+                incTitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } };
+                incTitleCell.font = { bold: true, size: 14 };
+                incTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+                const incHeaderRow = incSheet.addRow(['م', 'التاريخ', 'المحرقة', 'الوزن (كجم)', 'سعر الكيلو', 'التكلفة (ج.م)']);
+                incHeaderRow.eachCell((cell) => {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } };
+                    cell.font = { bold: true };
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                });
+
+                let incRowNum = 1;
+                reportData.incineratorDeliveries.forEach(delivery => {
+                    const row = incSheet.addRow([
+                        incRowNum++,
+                        delivery.routes?.route_date || '-',
+                        delivery.incinerators?.name || '-',
+                        delivery.weight_delivered || 0,
+                        delivery.cost_per_kg || 0,
+                        delivery.total_cost || 0
+                    ]);
+                    row.eachCell((cell) => {
+                        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                    });
+                });
+
+                incSheet.addRow([]);
+                const incTotalRow = incSheet.addRow(['', '', '', '', 'الإجمالي', reportData.incineratorCosts]);
+                incTotalRow.eachCell((cell) => { cell.font = { bold: true }; cell.alignment = { horizontal: 'center', vertical: 'middle' }; });
+
+                incSheet.columns = [{ width: 6 }, { width: 14 }, { width: 25 }, { width: 14 }, { width: 14 }, { width: 15 }];
+            }
+
+            // ========== Sheet 4: الملخص ==========
             const summarySheet = workbook.addWorksheet('الملخص', { views: [{ rightToLeft: true }] });
 
             summarySheet.mergeCells('A1:B1');
@@ -677,11 +745,14 @@ const Reports = () => {
             summarySheet.addRow(['إلى تاريخ', dateTo]);
             summarySheet.addRow([]);
             summarySheet.addRow(['إجمالي الإيرادات (ج.م)', reportData.totalRevenue]);
+            summarySheet.addRow(['المصروفات العادية (ج.م)', reportData.regularExpenses]);
+            summarySheet.addRow(['تكاليف المحارق (ج.م)', reportData.incineratorCosts]);
             summarySheet.addRow(['إجمالي المصروفات (ج.م)', reportData.totalExpenses]);
             summarySheet.addRow(['صافي الربح (ج.م)', reportData.netProfit]);
             summarySheet.addRow([]);
             summarySheet.addRow(['عدد الفواتير', reportData.invoices.length]);
             summarySheet.addRow(['عدد المصروفات', reportData.expenses.length]);
+            summarySheet.addRow(['عدد تسليمات المحارق', reportData.incineratorDeliveries?.length || 0]);
 
             summarySheet.columns = [{ width: 25 }, { width: 20 }];
 
@@ -1309,7 +1380,7 @@ const Reports = () => {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="bg-gradient-to-r from-brand-600 to-brand-700 rounded-xl p-6 text-white shadow-lg">
+            <div className="bg-gradient-to-r from-brand-600 to-brand-700 rounded-xl p-6 text-white shadow-lg no-print">
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-bold mb-2">التقارير</h1>
@@ -1320,7 +1391,7 @@ const Reports = () => {
             </div>
 
             {/* Report Generator */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 no-print">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">إنشاء تقرير جديد</h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1403,7 +1474,7 @@ const Reports = () => {
                                 من {dateFrom} إلى {dateTo}
                             </p>
                         </div>
-                        <div className="flex gap-2 print:hidden">
+                        <div className="flex gap-2 no-print">
                             <button
                                 onClick={handlePrint}
                                 className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -1438,10 +1509,19 @@ const Reports = () => {
                                 <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-xl p-4">
                                     <div className="flex items-center gap-2 mb-2">
                                         <TrendingUp className="w-5 h-5 text-red-600" />
-                                        <p className="text-sm text-red-700">إجمالي المصروفات</p>
+                                        <p className="text-sm text-red-700">المصروفات العادية</p>
                                     </div>
                                     <p className="text-2xl font-bold text-red-900">
-                                        {reportData.totalExpenses.toLocaleString()} <span className="text-sm font-normal">ج.م</span>
+                                        {reportData.regularExpenses.toLocaleString()} <span className="text-sm font-normal">ج.م</span>
+                                    </p>
+                                </div>
+                                <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Flame className="w-5 h-5 text-orange-600" />
+                                        <p className="text-sm text-orange-700">تكاليف المحارق</p>
+                                    </div>
+                                    <p className="text-2xl font-bold text-orange-900">
+                                        {reportData.incineratorCosts.toLocaleString()} <span className="text-sm font-normal">ج.م</span>
                                     </p>
                                 </div>
                                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4">
@@ -1452,13 +1532,6 @@ const Reports = () => {
                                     <p className={`text-2xl font-bold ${reportData.netProfit >= 0 ? 'text-blue-900' : 'text-red-900'}`}>
                                         {reportData.netProfit.toLocaleString()} <span className="text-sm font-normal">ج.م</span>
                                     </p>
-                                </div>
-                                <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <FileText className="w-5 h-5 text-purple-600" />
-                                        <p className="text-sm text-purple-700">عدد الفواتير</p>
-                                    </div>
-                                    <p className="text-2xl font-bold text-purple-900">{reportData.invoices.length}</p>
                                 </div>
                             </div>
 
@@ -1514,7 +1587,7 @@ const Reports = () => {
                                 <div>
                                     <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
                                         <TrendingUp className="w-5 h-5" />
-                                        المصروفات ({reportData.expenses.length})
+                                        المصروفات العادية ({reportData.expenses.length})
                                     </h3>
                                     <div className="overflow-x-auto rounded-xl border border-gray-200">
                                         <table className="w-full">
@@ -1541,7 +1614,47 @@ const Reports = () => {
                                             <tfoot className="bg-gray-100 font-bold">
                                                 <tr>
                                                     <td className="px-4 py-3 text-sm" colSpan="3">الإجمالي</td>
-                                                    <td className="px-4 py-3 text-sm text-red-600">{reportData.totalExpenses.toLocaleString()} ج.م</td>
+                                                    <td className="px-4 py-3 text-sm text-red-600">{reportData.regularExpenses.toLocaleString()} ج.م</td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Incinerator Costs */}
+                            {reportData.incineratorDeliveries && reportData.incineratorDeliveries.length > 0 && (
+                                <div>
+                                    <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                                        <Flame className="w-5 h-5" />
+                                        تكاليف المحارق ({reportData.incineratorDeliveries.length})
+                                    </h3>
+                                    <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                        <table className="w-full">
+                                            <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                                                <tr>
+                                                    <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">التاريخ</th>
+                                                    <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">المحرقة</th>
+                                                    <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">الوزن (كجم)</th>
+                                                    <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">سعر الكيلو</th>
+                                                    <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">التكلفة</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                                {reportData.incineratorDeliveries.map(delivery => (
+                                                    <tr key={delivery.id} className="hover:bg-gray-50 transition-colors">
+                                                        <td className="px-4 py-3 text-sm text-gray-600">{delivery.routes?.route_date || '-'}</td>
+                                                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{delivery.incinerators?.name || '-'}</td>
+                                                        <td className="px-4 py-3 text-sm text-gray-600">{(delivery.weight_delivered || 0).toLocaleString()}</td>
+                                                        <td className="px-4 py-3 text-sm text-gray-600">{(delivery.cost_per_kg || 0).toLocaleString()} ج.م</td>
+                                                        <td className="px-4 py-3 text-sm font-bold text-orange-600">{(delivery.total_cost || 0).toLocaleString()} ج.م</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                            <tfoot className="bg-gray-100 font-bold">
+                                                <tr>
+                                                    <td className="px-4 py-3 text-sm" colSpan="4">الإجمالي</td>
+                                                    <td className="px-4 py-3 text-sm text-orange-600">{reportData.incineratorCosts.toLocaleString()} ج.م</td>
                                                 </tr>
                                             </tfoot>
                                         </table>
@@ -1643,7 +1756,7 @@ const Reports = () => {
                     {reportData.type === 'clients' && filteredClientsData && (
                         <div className="space-y-6">
                             {/* فلاتر البحث على النتائج المعروضة */}
-                            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm no-print">
                                 <div className="flex items-center gap-2 mb-3">
                                     <Filter className="w-5 h-5 text-blue-600" />
                                     <h4 className="font-bold text-gray-800">فلترة النتائج</h4>
@@ -2153,7 +2266,7 @@ const Reports = () => {
             )}
 
             {/* Quick Reports */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 print:hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 no-print">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">تقارير سريعة</h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -2239,3 +2352,101 @@ const Reports = () => {
 };
 
 export default Reports;
+
+// إضافة CSS للطباعة
+const style = document.createElement('style');
+style.textContent = `
+    @media print {
+        /* إخفاء العناصر غير المطلوبة في الطباعة */
+        .no-print,
+        button,
+        select,
+        input[type="date"],
+        input[type="text"],
+        .bg-gradient-to-r,
+        header,
+        nav {
+            display: none !important;
+        }
+        
+        /* إزالة الحدود والخلفيات من الحقول */
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        
+        input,
+        select,
+        textarea {
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            outline: none !important;
+            padding: 0 !important;
+        }
+        
+        /* تحسين شكل الجداول */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            border: 1px solid #000 !important;
+            padding: 8px !important;
+            text-align: center !important;
+        }
+        
+        th {
+            background-color: #f3f4f6 !important;
+            font-weight: bold !important;
+        }
+        
+        /* إزالة الظلال والحدود الملونة */
+        .shadow-sm,
+        .shadow-md,
+        .shadow-lg,
+        .rounded-xl,
+        .rounded-lg {
+            box-shadow: none !important;
+        }
+        
+        .border-gray-100,
+        .border-gray-200,
+        .border-gray-300 {
+            border-color: transparent !important;
+        }
+        
+        /* تحسين العناوين */
+        h1, h2, h3 {
+            color: #000 !important;
+            page-break-after: avoid;
+        }
+        
+        /* منع تقسيم الجداول */
+        tr {
+            page-break-inside: avoid;
+        }
+        
+        /* إزالة الألوان الخلفية من البطاقات */
+        .bg-white,
+        .bg-gray-50,
+        .bg-blue-50,
+        .bg-green-50,
+        .bg-purple-50,
+        .bg-orange-50 {
+            background: transparent !important;
+        }
+        
+        /* تحسين المسافات */
+        body {
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .space-y-6 > * + * {
+            margin-top: 1.5rem !important;
+        }
+    }
+`;
+document.head.appendChild(style);

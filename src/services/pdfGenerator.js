@@ -1,4 +1,5 @@
 import { getCachedLogoBase64 } from '../utils/logoBase64';
+import { printOnMobile } from '../utils/mobilePrint';
 
 // توليد عقد PDF جديد بنص العقد الأصلي
 export const generateNewContractPDF = async (contractData) => {
@@ -38,12 +39,13 @@ export const generateNewContractPDF = async (contractData) => {
         <style>
             @page { 
                 size: A4; 
-                margin: 1.2cm 1.5cm;
+                margin: 1.2cm 1.5cm 2cm 1.5cm;
                 @bottom-center {
                     content: counter(page) " من " counter(pages);
                     font-family: 'Cairo', sans-serif;
                     font-size: 10px;
                     color: #666;
+                    font-weight: 600;
                 }
             }
             * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -52,11 +54,52 @@ export const generateNewContractPDF = async (contractData) => {
                 direction: rtl;
                 text-align: justify;
                 line-height: 1.8;
-                padding: 15px 25px;
+                padding: 15px 25px 70px 25px;
                 background: white;
                 color: #1a1a1a;
                 font-size: 12.5px;
-                counter-reset: page;
+            }
+            
+            /* Page Number - for screen view */
+            .page-number {
+                position: fixed;
+                bottom: 35px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 10px;
+                color: #666;
+                font-weight: 600;
+            }
+            
+            @media print {
+                .page-number {
+                    display: none;
+                }
+            }
+            
+            /* Page Footer with Signatures */
+            .page-footer {
+                position: fixed;
+                bottom: 8px;
+                left: 30px;
+                right: 30px;
+                height: 25px;
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-end;
+                padding: 0 20px;
+                font-size: 9px;
+                border-top: 1px solid #000;
+                padding-top: 5px;
+            }
+            .footer-signature {
+                text-align: center;
+                width: 150px;
+            }
+            .footer-signature-label {
+                font-weight: 600;
+                color: #000;
+                font-size: 9px;
             }
             
             /* Watermark - العلامة المائية */
@@ -321,6 +364,21 @@ export const generateNewContractPDF = async (contractData) => {
         </style>
     </head>
     <body>
+        <!-- Page Number -->
+        <div class="page-number">
+            <span class="page-num"></span>
+        </div>
+        
+        <!-- Page Footer (appears on every page) -->
+        <div class="page-footer">
+            <div class="footer-signature">
+                <div class="footer-signature-label">توقيع الطرف الأول</div>
+            </div>
+            <div class="footer-signature">
+                <div class="footer-signature-label">توقيع الطرف الثاني</div>
+            </div>
+        </div>
+
         <!-- Header -->
         <div class="header">
             <div class="header-text">
@@ -405,6 +463,9 @@ export const generateNewContractPDF = async (contractData) => {
             يلتزم الطرف الأول بوزن جميع المخلفات المستلمة من العميل بموازين معتمدة يتم توفيرها بمعرفة الطرف الأول، وتوثيق واثبات الوزن بإيصال الاستلام وموافاة العميل بصورة منه والتوقيع من الطرفين بسجل التسليم والتسلم للمخلفات الخاص بالمستشفى.
         </div>
 
+        <!-- Page Break قبل البند الخامس -->
+        <div class="page-break"></div>
+
         <div class="band-title">البند الخامس <span class="band-title-sub">(مدة العقد)</span></div>
         <div class="section-content">
             اتفق الطرفان على أن مدة هذا العقد <span class="field-value-inline">${contractDuration || 'سنة ميلادية واحدة'}</span> تبدأ من: <span class="field-value-inline">${startDate || '    /     /2025م'}</span> وتنتهي في: <span class="field-value-inline">${endDate || '    /     /2026م'}</span>.
@@ -443,6 +504,9 @@ export const generateNewContractPDF = async (contractData) => {
         <div class="section-content">
             إتفق الطرفان في حالة حدوث أي شكوى من العميل من أداء الخدمات أو من عاملي الطرف الاول، يتم الإبلاغ عنها بوسائل التواصل الرسمية للطرفين الى المسئولين بشركة كونسبت، والشركة مسئوله عن حلها وإزالة أسباب الشكوى بأسرع وقت ممكن. يتلقى الطرف الأول الطلبات والشكاوى من العملاء على مدار الـ 24 ساعة وطوال أيام الأسبوع، من خلال: <strong>01033193280 / 01029610733</strong>
         </div>
+
+        <!-- Page Break قبل البند الحادي عشر -->
+        <div class="page-break"></div>
 
         <div class="band-title">البند الحادى عشر <span class="band-title-sub">(إنهاء أو فسخ العقد)</span></div>
         <div class="section-content">
@@ -510,32 +574,32 @@ export const generateNewContractPDF = async (contractData) => {
             </div>
         </div>
         
-        <!-- Footer with page info -->
-        <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; text-align: center; font-size: 10px; color: #666;">
-            <p>عقد رقم: ${contractNumber || '---'} | شركة كونسبت للخدمات البيئية | Concept Eco Care</p>
-        </div>
-        
         <script>
-            // ترقيم الصفحات عند الطباعة
+            // حساب عدد الصفحات للعرض على الشاشة فقط
             window.onload = function() {
-                var totalPages = Math.ceil(document.body.scrollHeight / 1123); // A4 height in pixels approx
-                console.log('Total pages estimate:', totalPages);
+                setTimeout(function() {
+                    var pageHeight = 1050;
+                    var contentHeight = document.body.scrollHeight;
+                    var totalPages = Math.ceil(contentHeight / pageHeight);
+                    
+                    var pageNumElements = document.querySelectorAll('.page-num');
+                    pageNumElements.forEach(function(el) {
+                        el.textContent = '1 من ' + totalPages;
+                    });
+                }, 100);
             }
         </script>
     </body>
     </html>
     `;
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-        printWindow.document.write(contractHTML);
-        printWindow.document.close();
-        printWindow.focus();
-        
-        setTimeout(() => {
-            printWindow.print();
-        }, 300);
+    // حل محسّن للطباعة على الموبايل
+    try {
+        await printOnMobile(contractHTML, `contract-${contractNumber}.html`);
+        return true;
+    } catch (error) {
+        console.error('Print error:', error);
+        alert('حدث خطأ في الطباعة. يرجى المحاولة مرة أخرى.');
+        return false;
     }
-    
-    return true;
 };

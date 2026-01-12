@@ -90,6 +90,7 @@ const RouteDetails = () => {
                 .order('delivery_order', { ascending: true });
 
             if (!error && data) {
+                console.log('Deliveries data:', data); // للتأكد من البيانات
                 setDeliveries(data);
             }
         } catch (error) {
@@ -113,9 +114,9 @@ const RouteDetails = () => {
     if (!route) {
         return (
             <div className="text-center py-12">
-                <p className="text-gray-500">لم يتم العثور على الرحلة</p>
+                <p className="text-gray-500">لم يتم العثور على خط السير</p>
                 <Link to="/routes" className="text-brand-600 hover:underline mt-2 inline-block">
-                    العودة للرحلات
+                    العودة لخطوط السير
                 </Link>
             </div>
         );
@@ -148,8 +149,9 @@ const RouteDetails = () => {
                         <ArrowRight className="w-4 h-4" />
                         العودة للرحلات
                     </Link>
-                    <h1 className="text-2xl font-bold text-gray-900">{route.route_name || 'رحلة بدون اسم'}</h1>
-                    <p className="text-sm text-gray-500 mt-1">ID: {route.id.slice(0, 8)}</p>
+                    <h1 className="text-2xl font-bold text-gray-900">
+                        {route.route_number ? `${route.route_number} - ` : ''}{route.route_name || 'خط سير'}
+                    </h1>
                 </div>
                 <div className="flex items-center gap-3">
                     {route.route_stops && route.route_stops.length > 0 && route.status === 'completed' && (
@@ -162,7 +164,7 @@ const RouteDetails = () => {
             </div>
 
             {/* Info Cards */}
-            <div className={`grid grid-cols-1 gap-4 ${route.route_type === 'maintenance' ? 'md:grid-cols-2' : 'md:grid-cols-4'}`}>
+            <div className={`grid grid-cols-1 gap-4 ${route.route_type === 'maintenance' ? 'md:grid-cols-3' : 'md:grid-cols-5'}`}>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center gap-3 mb-2">
                         <User className="w-5 h-5 text-brand-600" />
@@ -184,6 +186,27 @@ const RouteDetails = () => {
                 <>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-center gap-3 mb-2">
+                        <Factory className="w-5 h-5 text-purple-600" />
+                        <span className="text-sm text-gray-500">المحرقة</span>
+                    </div>
+                    <p className="font-medium">{route.incinerators?.name || 'غير محدد'}</p>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center gap-3 mb-2">
+                        <Clock className="w-5 h-5 text-blue-600" />
+                        <span className="text-sm text-gray-500">وقت البداية</span>
+                    </div>
+                    <p className="font-medium">
+                        {route.start_time 
+                            ? new Date(route.start_time).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+                            : route.estimated_start_time || 'غير محدد'
+                        }
+                    </p>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center gap-3 mb-2">
                         <Package className="w-5 h-5 text-brand-600" />
                         <span className="text-sm text-gray-500">الوزن المجمع</span>
                     </div>
@@ -195,21 +218,22 @@ const RouteDetails = () => {
                         })()} كجم
                     </p>
                 </div>
-
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="flex items-center gap-3 mb-2">
-                        <Factory className="w-5 h-5 text-green-600" />
-                        <span className="text-sm text-gray-500">المسلم للمحارق</span>
-                    </div>
-                    <p className="font-medium text-green-600">
-                        {(() => {
-                            const deliveredWeight = deliveries.reduce((sum, d) => sum + parseFloat(d.weight_delivered || 0), 0);
-                            const safetyBoxWeight = route.route_stops?.reduce((sum, stop) => sum + (parseFloat(stop.collection_details?.safety_box_weight) || 0), 0) || 0;
-                            return (deliveredWeight + safetyBoxWeight).toFixed(2);
-                        })()} كجم
-                    </p>
-                </div>
                 </>
+                )}
+
+                {route.route_type === 'maintenance' && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                        <div className="flex items-center gap-3 mb-2">
+                            <Clock className="w-5 h-5 text-blue-600" />
+                            <span className="text-sm text-gray-500">وقت البداية</span>
+                        </div>
+                        <p className="font-medium">
+                            {route.start_time 
+                                ? new Date(route.start_time).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+                                : route.estimated_start_time || 'غير محدد'
+                            }
+                        </p>
+                    </div>
                 )}
             </div>
 
@@ -221,8 +245,8 @@ const RouteDetails = () => {
                             <span className="text-2xl">🔧</span>
                         </div>
                         <div>
-                            <h3 className="font-bold text-orange-900">رحلة صيانة</h3>
-                            <p className="text-sm text-orange-700">هذه الرحلة مخصصة لصيانة المركبة</p>
+                            <h3 className="font-bold text-orange-900">خط صيانة</h3>
+                            <p className="text-sm text-orange-700">هذا الخط مخصص لصيانة المركبة</p>
                         </div>
                     </div>
                     {route.maintenance_details && (
@@ -248,11 +272,13 @@ const RouteDetails = () => {
                             <Factory className="w-5 h-5 text-green-600" />
                             ملخص التسليم للمحارق
                         </h3>
-                        <p className="text-sm text-gray-500 mt-1">رقم الإيصال: {route.id.slice(0, 8).toUpperCase()}</p>
+                        <p className="text-sm text-gray-500 mt-1">
+                            رقم خط السير: {route.route_number || route.id.slice(0, 8).toUpperCase()}
+                        </p>
                     </div>
                     <div className="p-4">
                         <div className="space-y-3">
-                            {deliveries.map((delivery, index) => {
+                            {deliveries.map((delivery) => {
                                 // حساب الوزن الكلي المسلم (أكياس + سيفتي بوكس)
                                 const safetyBoxWeight = route.route_stops?.reduce((sum, stop) => sum + (parseFloat(stop.collection_details?.safety_box_weight) || 0), 0) || 0;
                                 const totalDeliveredWeight = parseFloat(delivery.weight_delivered) + safetyBoxWeight;
@@ -270,6 +296,11 @@ const RouteDetails = () => {
                                             <p className="text-sm text-gray-600 mt-1">
                                                 {new Date(delivery.delivery_time).toLocaleString('ar-EG')}
                                             </p>
+                                            {delivery.delivery_number && (
+                                                <p className="text-xs bg-green-600 text-white px-2 py-1 rounded-full font-mono inline-block mt-1">
+                                                    {delivery.delivery_number}
+                                                </p>
+                                            )}
                                         </div>
                                         <div className="text-left">
                                             <div className="text-sm text-gray-600">الكمية المسلمة</div>
@@ -392,14 +423,14 @@ const RouteDetails = () => {
             {route.route_type !== 'maintenance' && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                 <div className="p-4 border-b border-gray-100">
-                    <h3 className="font-bold text-gray-900">محطات الرحلة ({route.route_stops?.length || 0})</h3>
+                    <h3 className="font-bold text-gray-900">محطات خط السير ({route.route_stops?.length || 0})</h3>
                 </div>
 
                 {route.route_stops && route.route_stops.length > 0 ? (
                     <div className="divide-y divide-gray-100">
                         {route.route_stops
                             .sort((a, b) => a.stop_order - b.stop_order)
-                            .map((stop, index) => (
+                            .map((stop) => (
                                 <div key={stop.id} className="p-4 hover:bg-gray-50 transition-colors">
                                     <div className="flex items-start gap-4">
                                         <div className="flex-shrink-0">
@@ -443,7 +474,7 @@ const RouteDetails = () => {
                                                             تفاصيل الاستلام
                                                         </h5>
                                                         <span className="text-xs bg-brand-100 text-brand-700 px-2 py-1 rounded-full font-mono">
-                                                            رقم الإيصال: EC-{new Date(stop.collection_details.collection_time || Date.now()).getFullYear()}-{stop.hospital_id?.slice(-3).toUpperCase() || '000'}-{Date.parse(stop.collection_details.collection_time || Date.now()).toString().slice(-5)}
+                                                            رقم الإيصال: {stop.receipt_number || 'غير متاح'}
                                                         </span>
                                                     </div>
                                                     
@@ -598,7 +629,7 @@ const RouteDetails = () => {
                 ) : (
                     <div className="p-8 text-center text-gray-500">
                         <MapPin className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                        <p>لا توجد محطات لهذه الرحلة</p>
+                        <p>لا توجد محطات لخط السير هذا</p>
                     </div>
                 )}
             </div>

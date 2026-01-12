@@ -269,7 +269,7 @@ const PrintCompleteReceipt = ({ route, stops, deliveries }) => {
                     
                     <!-- Route Info -->
                     <div class="info-section">
-                        <div class="info-item"><span class="info-label">رقم الإيصال:</span> ${route.id.slice(0, 8).toUpperCase()}</div>
+                        <div class="info-item"><span class="info-label">رقم الإيصال:</span> ${deliveries && deliveries.length > 0 && deliveries[0].delivery_number ? deliveries[0].delivery_number : route.id.slice(0, 8).toUpperCase()}</div>
                         <div class="info-item"><span class="info-label">التاريخ:</span> ${routeDate}</div>
                         <div class="info-item"><span class="info-label">المندوب:</span> ${route.representatives?.users?.full_name || 'غير محدد'}</div>
                         <div class="info-item"><span class="info-label">السيارة:</span> ${route.vehicles?.plate_number || 'غير محدد'}</div>

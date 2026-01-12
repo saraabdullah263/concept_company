@@ -3,7 +3,7 @@ import { ar } from 'date-fns/locale';
 import { Truck, User, MapPin, Clock, MoreVertical, Edit, Trash2, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const RouteList = ({ routes, onEdit, onDelete }) => {
+const RouteList = ({ routes, onEdit }) => {
     const getStatusColor = (status) => {
         switch (status) {
             case 'completed': return 'bg-green-100 text-green-800';
@@ -36,7 +36,7 @@ const RouteList = ({ routes, onEdit, onDelete }) => {
 
                         {/* Header & Main Info */}
                         <div className="flex-1">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 flex-wrap">
                                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(route.status)}`}>
                                     {traverseStatus[route.status] || route.status}
                                 </span>
@@ -44,7 +44,7 @@ const RouteList = ({ routes, onEdit, onDelete }) => {
                                     {getRouteTypeLabel(route.route_type)}
                                 </span>
                                 <h3 className="text-lg font-bold text-gray-900">
-                                    {route.route_name || `خط سير #${route.id.slice(0, 8)}`}
+                                    {route.route_number ? `${route.route_number} - ` : ''}{route.route_name || 'خط سير'}
                                 </h3>
                             </div>
 
@@ -55,12 +55,29 @@ const RouteList = ({ routes, onEdit, onDelete }) => {
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <Truck className="w-4 h-4 text-gray-400" />
-                                    <span>{route.vehicles?.plate_number || 'غير دقيق'}</span>
+                                    <span>{route.vehicles?.plate_number || 'غير محدد'}</span>
                                 </div>
+                                {route.route_type !== 'maintenance' && route.incinerators?.name && (
+                                    <div className="flex items-center gap-1">
+                                        <MapPin className="w-4 h-4 text-gray-400" />
+                                        <span>{route.incinerators.name}</span>
+                                    </div>
+                                )}
                                 <div className="flex items-center gap-1">
                                     <Clock className="w-4 h-4 text-gray-400" />
                                     <span>{route.route_date ? format(new Date(route.route_date), 'PPP', { locale: ar }) : '-'}</span>
                                 </div>
+                                {(route.start_time || route.estimated_start_time) && (
+                                    <div className="flex items-center gap-1">
+                                        <Clock className="w-4 h-4 text-blue-400" />
+                                        <span>
+                                            {route.start_time 
+                                                ? new Date(route.start_time).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+                                                : route.estimated_start_time
+                                            }
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -87,9 +104,23 @@ const RouteList = ({ routes, onEdit, onDelete }) => {
                             <Link to={`/routes/${route.id}`} className="p-2 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="عرض التفاصيل">
                                 <Eye className="w-5 h-5" />
                             </Link>
-                            <button onClick={() => onEdit(route)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="تعديل">
-                                <Edit className="w-5 h-5" />
-                            </button>
+                            {route.status !== 'completed' ? (
+                                <button 
+                                    onClick={() => onEdit(route)} 
+                                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" 
+                                    title="تعديل"
+                                >
+                                    <Edit className="w-5 h-5" />
+                                </button>
+                            ) : (
+                                <button 
+                                    disabled 
+                                    className="p-2 text-gray-300 cursor-not-allowed" 
+                                    title="لا يمكن تعديل رحلة مكتملة"
+                                >
+                                    <Edit className="w-5 h-5" />
+                                </button>
+                            )}
                         </div>
                     </div>
 

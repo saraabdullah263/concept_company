@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Cairo', system-ui, -apple-system, sans-serif;
   --color-brand-50: #f0f9ff;
   --color-brand-100: #e0f2fe;
   --color-brand-500: #0ea5e9;
@@ -13,10 +13,14 @@
   direction: rtl;
 }
 
+* {
+  font-family: 'Cairo', system-ui, -apple-system, sans-serif !important;
+}
+
 body {
   background-color: var(--color-gray-50);
   color: var(--color-gray-900);
-  font-family: var(--font-sans);
+  font-family: 'Cairo', system-ui, -apple-system, sans-serif;
 }
 
 
@@ -31,7 +35,7 @@ body {
   .sidebar,
   [class*="sidebar"],
   [class*="Sidebar"],
-  .print\\:hidden {
+  [class*="print\:hidden"] {
     display: none !important;
     visibility: hidden !important;
   }

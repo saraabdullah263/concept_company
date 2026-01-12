@@ -1,12 +1,16 @@
 import { useForm } from 'react-hook-form';
-import { Loader2, X, MapPin, Building2, User, Navigation, Map } from 'lucide-react';
+import { Loader2, X, MapPin, Building2, User, Navigation, Map, FileText, Upload, File } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
+import { supabase } from '../../services/supabase';
 
 const HospitalForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) => {
     const [gettingLocation, setGettingLocation] = useState(false);
     const [selectedAddress, setSelectedAddress] = useState('');
     const [showInstructions, setShowInstructions] = useState(false);
+    const [licenseFile, setLicenseFile] = useState(null);
+    const [uploadingFile, setUploadingFile] = useState(false);
+    const [existingFileUrl, setExistingFileUrl] = useState(null);
     const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
         defaultValues: {
             name: '',
@@ -17,6 +21,8 @@ const HospitalForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
             latitude: '',
             longitude: '',
             parent_entity: '',
+            license_number: '',
+            license_expiry_date: '',
             annual_visits_count: '',
             annual_contract_price: '',
             single_visit_price: '',
@@ -37,6 +43,16 @@ const HospitalForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
     const clientName = watch('name');
     const city = watch('city');
     const clientType = watch('client_type');
+
+    const handleFormSubmit = (data) => {
+        // إضافة الملف للبيانات
+        const formDataWithFile = {
+            ...data,
+            licenseFile: licenseFile,
+            license_file_url: existingFileUrl
+        };
+        onSubmit(formDataWithFile);
+    };
 
     const openMapPicker = () => {
         const lat = latitude || '30.0444';
@@ -148,6 +164,9 @@ const HospitalForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                 if (initialData.latitude && initialData.longitude) {
                     getAddressFromCoords(initialData.latitude, initialData.longitude);
                 }
+                if (initialData.license_file_url) {
+                    setExistingFileUrl(initialData.license_file_url);
+                }
             } else {
                 reset({
                     name: '',
@@ -158,6 +177,8 @@ const HospitalForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                     latitude: '',
                     longitude: '',
                     parent_entity: '',
+                    license_number: '',
+                    license_expiry_date: '',
                     annual_visits_count: '',
                     annual_contract_price: '',
                     single_visit_price: '',
@@ -172,6 +193,8 @@ const HospitalForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                     is_active: true
                 });
                 setSelectedAddress('');
+                setLicenseFile(null);
+                setExistingFileUrl(null);
             }
         }
     }, [isOpen, initialData, reset]);
@@ -197,7 +220,7 @@ const HospitalForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+                <form onSubmit={handleSubmit(handleFormSubmit)} className="p-6 space-y-6">
                     {/* Basic Info Section */}
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -249,6 +272,123 @@ const HospitalForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                                     className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
                                     placeholder="مثال: وزارة الصحة، القطاع الخاص"
                                 />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* License Section */}
+                    <div className="space-y-4 pt-4 border-t border-gray-200">
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <FileText className="w-5 h-5 text-brand-600" />
+                            بيانات الرخصة
+                        </h3>
+                        <p className="text-sm text-gray-500">رخصة مزاولة النشاط الطبي الصادرة من وزارة الصحة</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    رقم الرخصة
+                                </label>
+                                <input
+                                    type="text"
+                                    {...register('license_number')}
+                                    className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                                    placeholder="مثال: 12345/2024"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">رقم رخصة مزاولة المهنة</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    تاريخ انتهاء الرخصة
+                                </label>
+                                <input
+                                    type="date"
+                                    {...register('license_expiry_date')}
+                                    className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">تاريخ انتهاء صلاحية الرخصة</p>
+                            </div>
+
+                            <div className="col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    صورة أو ملف الرخصة (PDF, JPG, PNG)
+                                </label>
+                                
+                                {existingFileUrl && !licenseFile ? (
+                                    <div className="border border-green-300 bg-green-50 rounded-lg p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <File className="w-5 h-5 text-green-600" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-green-900">ملف موجود</p>
+                                                    <a
+                                                        href={existingFileUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs text-green-600 hover:underline"
+                                                    >
+                                                        عرض الملف
+                                                    </a>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setExistingFileUrl(null)}
+                                                className="text-gray-400 hover:text-red-600"
+                                                title="حذف الملف"
+                                            >
+                                                <X className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : licenseFile ? (
+                                    <div className="border border-blue-300 bg-blue-50 rounded-lg p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <File className="w-5 h-5 text-blue-600" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-blue-900">{licenseFile.name}</p>
+                                                    <p className="text-xs text-blue-600">{(licenseFile.size / 1024).toFixed(2)} KB</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setLicenseFile(null)}
+                                                className="text-gray-400 hover:text-red-600"
+                                                title="إزالة الملف"
+                                            >
+                                                <X className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-brand-400 transition-colors">
+                                        <Upload className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                                        <label className="cursor-pointer">
+                                            <span className="text-sm text-brand-600 hover:text-brand-700 font-medium">
+                                                اختر ملف
+                                            </span>
+                                            <input
+                                                type="file"
+                                                accept=".pdf,.jpg,.jpeg,.png"
+                                                onChange={(e) => {
+                                                    const file = e.target.files[0];
+                                                    if (file) {
+                                                        // التحقق من حجم الملف (أقل من 5 ميجا)
+                                                        if (file.size > 5 * 1024 * 1024) {
+                                                            alert('حجم الملف كبير جداً. الحد الأقصى 5 ميجابايت');
+                                                            return;
+                                                        }
+                                                        setLicenseFile(file);
+                                                    }
+                                                }}
+                                                className="hidden"
+                                            />
+                                        </label>
+                                        <p className="text-xs text-gray-500 mt-1">PDF, JPG, PNG (حد أقصى 5 ميجا)</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

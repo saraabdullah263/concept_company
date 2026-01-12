@@ -12,7 +12,8 @@ import {
     Menu,
     X,
     DollarSign,
-    Flame
+    Flame,
+    MapPin
 } from 'lucide-react';
 import clsx from 'clsx';
 import Logo from './Logo';
@@ -25,6 +26,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         { name: 'العملاء', to: '/hospitals', icon: FileText, roles: ['admin', 'logistics_manager', 'accountant'] },
         { name: 'العقود', to: '/contracts', icon: FileText, roles: ['admin', 'logistics_manager', 'accountant'] },
         { name: 'خطوط السير', to: '/routes', icon: Truck, roles: ['admin', 'logistics_manager', 'supervisor', 'representative'] },
+        { name: 'الرحلات', to: '/trips', icon: MapPin, roles: ['admin', 'logistics_manager', 'supervisor'] },
         { name: 'المركبات', to: '/vehicles', icon: Truck, roles: ['admin', 'logistics_manager'] },
         { name: 'المحارق', to: '/incinerators', icon: Flame, roles: ['admin', 'logistics_manager'] },
         { name: 'المحاسبة', to: '/accounting', icon: BarChart2, roles: ['admin', 'accountant'] },
@@ -104,6 +106,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                         <NavLink
                             key={item.name}
                             to={item.to}
+                            onClick={toggleSidebar}
                             className={({ isActive }) => clsx(
                                 "flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors group",
                                 isActive
@@ -121,7 +124,10 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
                     <div className="pt-4 mt-4 border-t border-gray-100">
                         <button
-                            onClick={() => signOut()}
+                            onClick={() => {
+                                toggleSidebar();
+                                signOut();
+                            }}
                             className="flex items-center w-full px-4 py-3 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors"
                         >
                             <LogOut className="w-5 h-5 ml-3" />

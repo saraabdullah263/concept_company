@@ -173,36 +173,70 @@ const Hospitals = () => {
         }
     };
 
-    const handleSubmit = async (data) => {
+    const handleSubmit = async (formData) => {
         setIsSubmitting(true);
         try {
+            let licenseFileUrl = formData.license_file_url || null;
+            let licenseFileName = formData.license_file_name || null;
+
+            // رفع ملف الرخصة إذا كان موجوداً
+            if (formData.licenseFile) {
+                const file = formData.licenseFile;
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const filePath = `client-licenses/${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('medical-waste')
+                    .upload(filePath, file);
+
+                if (uploadError) {
+                    console.error('Error uploading file:', uploadError);
+                    alert('حدث خطأ أثناء رفع الملف');
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                // الحصول على رابط الملف
+                const { data: urlData } = supabase.storage
+                    .from('medical-waste')
+                    .getPublicUrl(filePath);
+
+                licenseFileUrl = urlData.publicUrl;
+                licenseFileName = file.name;
+            }
+
             // Clean data - include all new fields
             const cleanData = {
-                name: data.name,
-                client_type: data.client_type,
-                parent_entity: data.parent_entity,
-                governorate: data.governorate,
-                city: data.city,
-                detailed_address: data.detailed_address,
-                latitude: data.latitude ? parseFloat(data.latitude) : null,
-                longitude: data.longitude ? parseFloat(data.longitude) : null,
-                annual_visits_count: data.annual_visits_count ? parseInt(data.annual_visits_count) : null,
-                annual_contract_price: data.annual_contract_price ? parseFloat(data.annual_contract_price) : null,
-                single_visit_price: data.single_visit_price ? parseFloat(data.single_visit_price) : null,
-                monthly_contract_price: data.monthly_contract_price ? parseFloat(data.monthly_contract_price) : null,
-                contact_person_name: data.contact_person_name,
-                contact_mobile: data.contact_mobile,
-                contact_landline: data.contact_landline,
-                contact_email: data.contact_email,
-                is_active: data.is_active,
+                name: formData.name,
+                client_type: formData.client_type,
+                parent_entity: formData.parent_entity,
+                governorate: formData.governorate,
+                city: formData.city,
+                detailed_address: formData.detailed_address,
+                latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+                longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+                license_number: formData.license_number || null,
+                license_expiry_date: formData.license_expiry_date || null,
+                license_file_url: licenseFileUrl,
+                license_file_name: licenseFileName,
+                annual_visits_count: formData.annual_visits_count ? parseInt(formData.annual_visits_count) : null,
+                annual_contract_price: formData.annual_contract_price ? parseFloat(formData.annual_contract_price) : null,
+                single_visit_price: formData.single_visit_price ? parseFloat(formData.single_visit_price) : null,
+                monthly_contract_price: formData.monthly_contract_price ? parseFloat(formData.monthly_contract_price) : null,
+                contact_person_name: formData.contact_person_name,
+                contact_mobile: formData.contact_mobile,
+                contact_landline: formData.contact_landline,
+                contact_email: formData.contact_email,
+                is_active: formData.is_active,
                 // مواعيد الزيارة للعيادات والمراكز الطبية
-                visit_hours_from: data.visit_hours_from || null,
-                visit_hours_to: data.visit_hours_to || null,
-                visit_days: Array.isArray(data.visit_days) ? data.visit_days.join(',') : (data.visit_days || null),
+                visit_hours_from: formData.visit_hours_from || null,
+                visit_hours_to: formData.visit_hours_to || null,
+                visit_days: Array.isArray(formData.visit_days) ? formData.visit_days.join(',') : (formData.visit_days || null),
                 // Keep old fields for backward compatibility
-                address: data.detailed_address || data.address,
-                contact_person: data.contact_person_name || data.contact_person,
-                contact_phone: data.contact_mobile || data.contact_phone
+                address: formData.detailed_address || formData.address,
+                contact_person: formData.contact_person_name || formData.contact_person,
+                contact_phone: formData.contact_mobile || formData.contact_phone
             };
 
             if (editingHospital) {

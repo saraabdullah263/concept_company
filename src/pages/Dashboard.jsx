@@ -17,6 +17,9 @@ const Dashboard = () => {
         activeContracts: 0,
         pendingInvoices: 0,
         totalRevenue: 0,
+        pendingAmount: 0,
+        regularExpenses: 0,
+        incineratorCosts: 0,
         totalExpenses: 0,
         activeHospitals: 0,
         myRoutesToday: 0,
@@ -25,7 +28,7 @@ const Dashboard = () => {
         incineratorPaid: 0,
         incineratorBalance: 0
     });
-    const [loading, setLoading] = useState(true);
+    const [_loading, setLoading] = useState(true);
 
     useEffect(() => {
         // لا تحمل البيانات حتى يتم تحميل role المستخدم
@@ -82,16 +85,30 @@ const Dashboard = () => {
                 supabase.from('vehicles').select('id').eq('is_active', true),
                 supabase.from('contracts').select('id').eq('status', 'active'),
                 supabase.from('invoices').select('id, total_amount, status'),
-                supabase.from('expenses').select('id, amount'),
+                supabase.from('expenses').select('id, amount').neq('status', 'cancelled'),
                 supabase.from('hospitals').select('id').eq('is_active', true),
                 supabase.from('incinerator_deliveries').select('total_cost'),
                 supabase.from('incinerator_payments').select('amount')
             ]);
 
             const completedRoutes = routes.data?.filter(r => r.status === 'completed') || [];
-            const pendingInvoices = invoices.data?.filter(inv => inv.status !== 'paid') || [];
-            const totalRevenue = pendingInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-            const totalExpenses = expenses.data?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
+            
+            // حساب إجمالي الإيرادات (كل الفواتير ما عدا الملغاة)
+            const allInvoices = invoices.data?.filter(inv => inv.status !== 'cancelled') || [];
+            const totalRevenue = allInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+            
+            // الفواتير المعلقة فقط
+            const pendingInvoices = invoices.data?.filter(inv => inv.status !== 'paid' && inv.status !== 'cancelled') || [];
+            const pendingAmount = pendingInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+            
+            // حساب المصاريف العادية (استبعاد الملغاة)
+            const regularExpenses = expenses.data?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
+            
+            // حساب تكاليف المحارق
+            const incineratorCosts = incineratorDeliveries.data?.reduce((sum, d) => sum + (d.total_cost || 0), 0) || 0;
+            
+            // إجمالي المصاريف = المصاريف العادية + تكاليف المحارق
+            const totalExpenses = regularExpenses + incineratorCosts;
             
             // حسابات المحارق
             const incineratorDue = incineratorDeliveries.data?.reduce((sum, d) => sum + (d.total_cost || 0), 0) || 0;
@@ -104,7 +121,10 @@ const Dashboard = () => {
                 totalVehicles: vehicles.data?.length || 0,
                 activeContracts: contracts.data?.length || 0,
                 pendingInvoices: pendingInvoices.length,
-                totalRevenue,
+                pendingAmount, // المبلغ المعلق
+                totalRevenue, // إجمالي الإيرادات (كل الفواتير)
+                regularExpenses, // إضافة المصاريف العادية منفصلة
+                incineratorCosts, // إضافة تكاليف المحارق منفصلة
                 totalExpenses,
                 activeHospitals: hospitals.data?.length || 0,
                 incineratorDue,
@@ -225,7 +245,7 @@ const Dashboard = () => {
             </div>
 
             {/* Main Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
                 <StatCard
                     title="إجمالي الرحلات"
                     value={stats.totalRoutes}
@@ -255,21 +275,42 @@ const Dashboard = () => {
                     color="from-orange-500 to-orange-600"
                     link="/contracts"
                 />
+                <StatCard
+                    title="العملاء النشطين"
+                    value={stats.activeHospitals}
+                    icon={Users}
+                    color="from-teal-500 to-teal-600"
+                    link="/hospitals"
+                />
             </div>
 
-            {/* Financial Overview */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Financial Overview - Row 1 */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6 border border-green-200">
                     <div className="flex items-center gap-3 mb-4">
                         <DollarSign className="w-8 h-8 text-green-600" />
                         <div>
-                            <p className="text-sm text-green-700 font-medium">الإيرادات المعلقة</p>
+                            <p className="text-sm text-green-700 font-medium">إجمالي الإيرادات</p>
                             <p className="text-2xl font-bold text-green-900">{stats.totalRevenue.toLocaleString()} ج.م</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-green-700">
-                        <Clock className="w-4 h-4" />
-                        <span>{stats.pendingInvoices} فاتورة معلقة</span>
+                        <TrendingUp className="w-4 h-4" />
+                        <span>جميع الفواتير (مدفوعة + معلقة)</span>
+                    </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-2xl p-6 border border-yellow-200">
+                    <div className="flex items-center gap-3 mb-4">
+                        <Clock className="w-8 h-8 text-yellow-600" />
+                        <div>
+                            <p className="text-sm text-yellow-700 font-medium">الفواتير المعلقة</p>
+                            <p className="text-2xl font-bold text-yellow-900">{stats.pendingAmount.toLocaleString()} ج.م</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-yellow-700">
+                        <AlertCircle className="w-4 h-4" />
+                        <span>{stats.pendingInvoices} فاتورة لم تُدفع بعد</span>
                     </div>
                 </div>
 
@@ -277,8 +318,8 @@ const Dashboard = () => {
                     <div className="flex items-center gap-3 mb-4">
                         <TrendingDown className="w-8 h-8 text-red-600" />
                         <div>
-                            <p className="text-sm text-red-700 font-medium">إجمالي المصروفات</p>
-                            <p className="text-2xl font-bold text-red-900">{stats.totalExpenses.toLocaleString()} ج.م</p>
+                            <p className="text-sm text-red-700 font-medium">المصروفات العادية</p>
+                            <p className="text-2xl font-bold text-red-900">{stats.regularExpenses.toLocaleString()} ج.م</p>
                         </div>
                     </div>
                     <Link to="/expenses" className="text-xs text-red-600 hover:underline flex items-center gap-1">
@@ -286,21 +327,21 @@ const Dashboard = () => {
                     </Link>
                 </div>
 
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 border border-blue-200">
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl p-6 border border-orange-200">
                     <div className="flex items-center gap-3 mb-4">
-                        <Users className="w-8 h-8 text-blue-600" />
+                        <TrendingDown className="w-8 h-8 text-orange-600" />
                         <div>
-                            <p className="text-sm text-blue-700 font-medium">العملاء النشطين</p>
-                            <p className="text-2xl font-bold text-blue-900">{stats.activeHospitals}</p>
+                            <p className="text-sm text-orange-700 font-medium">إجمالي المصروفات</p>
+                            <p className="text-2xl font-bold text-orange-900">{stats.totalExpenses.toLocaleString()} ج.م</p>
                         </div>
                     </div>
-                    <Link to="/hospitals" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-                        <span>إدارة العملاء</span>
-                    </Link>
+                    <div className="text-xs text-orange-600">
+                        المصروفات العادية + تكاليف المحارق
+                    </div>
                 </div>
             </div>
 
-            {/* Incinerator Stats */}
+            {/* Financial Overview - Row 2 */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Link to="/incinerator-accounts" className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl p-6 border border-orange-200 hover:shadow-lg transition-shadow">
                     <div className="flex items-center gap-3 mb-4">

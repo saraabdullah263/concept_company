@@ -32,6 +32,29 @@ const VehicleForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) =
 
                     if (error) throw error;
                     setRepresentatives(data || []);
+                    
+                    // Reset النموذج بعد تحميل المندوبين
+                    if (initialData) {
+                        reset({
+                            ...initialData,
+                            owner_representative_id: initialData.owner_representative_id || ''
+                        });
+                        
+                        // تحديث رخصة المندوب المختار
+                        if (initialData.owner_representative_id && data) {
+                            const rep = data.find(r => r.id === initialData.owner_representative_id);
+                            setSelectedRepLicense(rep?.license_expiry_date || null);
+                        }
+                    } else {
+                        reset({
+                            plate_number: '',
+                            model: '',
+                            capacity_kg: '',
+                            owner_representative_id: '',
+                            license_renewal_date: '',
+                            is_active: true
+                        });
+                    }
                 } catch (error) {
                     console.error('Error fetching representatives:', error);
                 } finally {
@@ -40,15 +63,6 @@ const VehicleForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) =
             };
 
             fetchRepresentatives();
-
-            reset(initialData || {
-                plate_number: '',
-                model: '',
-                capacity_kg: '',
-                owner_representative_id: '',
-                license_renewal_date: '',
-                is_active: true
-            });
         }
     }, [isOpen, initialData, reset]);
 

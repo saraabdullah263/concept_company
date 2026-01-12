@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
-import { useAuth } from '../../context/AuthContext';
 import RouteStopCard from '../../components/routes/RouteStopCard';
 import IncineratorDeliveryModal from '../../components/routes/IncineratorDeliveryModal';
 import PrintCompleteReceipt from '../../components/routes/PrintCompleteReceipt';
@@ -9,8 +8,6 @@ import { Loader2, MapPin, Clock, AlertCircle, CheckCircle2, Factory } from 'luci
 
 const RepresentativeRoute = () => {
     const { routeId } = useParams();
-    const navigate = useNavigate();
-    const { user } = useAuth();
     
     const [route, setRoute] = useState(null);
     const [stops, setStops] = useState([]);
@@ -115,14 +112,11 @@ const RepresentativeRoute = () => {
 
     const fetchDeliveries = async () => {
         try {
-            console.log('Fetching deliveries for route:', routeId);
             const { data, error } = await supabase
                 .from('incinerator_deliveries')
                 .select('*, incinerators:incinerator_id(name)')
                 .eq('route_id', routeId)
                 .order('delivery_order', { ascending: true });
-
-            console.log('Deliveries result:', { data, error });
 
             if (error) {
                 console.error('Error fetching deliveries:', error);
@@ -131,7 +125,6 @@ const RepresentativeRoute = () => {
             
             if (data) {
                 setDeliveries(data);
-                console.log('Deliveries set:', data.length);
             }
         } catch (error) {
             console.error('Error fetching deliveries:', error);
@@ -216,47 +209,6 @@ const RepresentativeRoute = () => {
             alert('حدث خطأ في تأكيد المهمة');
         } finally {
             setIsStarting(false);
-        }
-    };
-
-    const handleCompleteRoute = async (finalWeight) => {
-        // استخدام موقع افتراضي لو مش متاح
-        if (!currentLocation) {
-            console.warn('Location not available, using default');
-        }
-        const locationData = currentLocation || { lat: 0, lng: 0, accuracy: 0 };
-
-        try {
-            const now = new Date().toISOString();
-
-            // Update route
-            const { error: routeError } = await supabase
-                .from('routes')
-                .update({
-                    status: 'completed',
-                    end_time: now,
-                    end_location: locationData,
-                    final_weight_at_incinerator: finalWeight
-                })
-                .eq('id', routeId);
-
-            if (routeError) throw routeError;
-
-            // Log event
-            await supabase.from('route_tracking_logs').insert({
-                route_id: routeId,
-                event_type: 'route_completed',
-                event_time: now,
-                location: locationData,
-                data: { final_weight: finalWeight }
-            });
-
-            alert('تم إنهاء الرحلة بنجاح');
-            navigate('/routes');
-
-        } catch (error) {
-            console.error('Error completing route:', error);
-            alert('حدث خطأ في إنهاء الرحلة');
         }
     };
 
@@ -491,7 +443,7 @@ const RepresentativeRoute = () => {
                             <div key={delivery.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
                                 <div>
                                     <div className="font-medium text-gray-900">
-                                        {index + 1}. {delivery.incinerators?.name}
+                                        {delivery.delivery_number ? `${delivery.delivery_number} - ` : `${index + 1}. `}{delivery.incinerators?.name}
                                     </div>
                                     <div className="text-sm text-gray-600">
                                         {new Date(delivery.delivery_time).toLocaleString('ar-EG')}

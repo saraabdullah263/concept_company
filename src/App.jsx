@@ -5,9 +5,11 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Hospitals from './pages/contracts/Hospitals';
 import Contracts from './pages/contracts/Contracts';
+import ContractDetails from './pages/contracts/ContractDetails';
 import RoutesPage from './pages/routes/Routes';
 import RouteDetails from './pages/routes/RouteDetails';
 import RepresentativeRoute from './pages/routes/RepresentativeRoute';
+import TripsPage from './pages/routes/Trips';
 import Vehicles from './pages/routes/Vehicles';
 import Incinerators from './pages/routes/Incinerators';
 import Users from './pages/users/Users';
@@ -38,7 +40,7 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <AuthProvider>
-      <Router basename="/concept_company">
+      <Router basename={import.meta.env.VITE_BASE_URL || '/'}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/setup" element={<Setup />} />
@@ -61,6 +63,11 @@ function App() {
                 <Contracts />
               </RoleProtectedRoute>
             } />
+            <Route path="contracts/:id" element={
+              <RoleProtectedRoute allowedRoles={['admin', 'logistics_manager', 'accountant']}>
+                <ContractDetails />
+              </RoleProtectedRoute>
+            } />
             <Route path="contracts/list" element={<Navigate to="/contracts" replace />} />
 
             <Route path="routes" element={<RoutesPage />} />
@@ -70,6 +77,7 @@ function App() {
                 <RepresentativeRoute />
               </RoleProtectedRoute>
             } />
+            <Route path="trips" element={<TripsPage />} />
 
             <Route path="vehicles" element={
               <RoleProtectedRoute allowedRoles={['admin', 'logistics_manager']}>

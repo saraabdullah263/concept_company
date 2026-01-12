@@ -61,9 +61,9 @@ const RouteCard = ({ route, navigate }) => {
         >
             <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <h3 className="text-lg font-bold text-gray-900">
-                            {route.route_name || `رحلة ${new Date(route.route_date).toLocaleDateString('ar-EG')}`}
+                            {route.route_number ? `${route.route_number} - ` : ''}{route.route_name || `رحلة ${new Date(route.route_date).toLocaleDateString('ar-EG')}`}
                         </h3>
                         {route.route_type === 'maintenance' && (
                             <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">

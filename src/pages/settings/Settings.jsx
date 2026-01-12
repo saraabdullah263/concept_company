@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Bell, Database, Globe, Loader2, AlertTriangle } from 'lucide-react';
+import { Save, Bell, Database, Globe, Loader2, AlertTriangle, Image, Upload, X } from 'lucide-react';
 import ToggleSwitch from '../../components/common/ToggleSwitch';
 import { supabase } from '../../services/supabase';
 
@@ -26,15 +26,160 @@ const Settings = () => {
     });
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [logoPreview, setLogoPreview] = useState(null);
+    const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+    const [logoUrl, setLogoUrl] = useState(null);
 
     // تحميل الإعدادات من localStorage
     useEffect(() => {
-        const savedSettings = localStorage.getItem('appSettings');
-        if (savedSettings) {
-            setSettings(JSON.parse(savedSettings));
-        }
-        setIsLoading(false);
+        loadSettings();
     }, []);
+
+    const loadSettings = async () => {
+        try {
+            // تحميل الإعدادات العامة
+            const savedSettings = localStorage.getItem('appSettings');
+            if (savedSettings) {
+                setSettings(JSON.parse(savedSettings));
+            }
+            
+            // تحميل اللوجو من Supabase Storage
+            const { data: files, error } = await supabase.storage
+                .from('medical-waste')
+                .list('company-logo', {
+                    limit: 1,
+                    sortBy: { column: 'created_at', order: 'desc' }
+                });
+
+            if (!error && files && files.length > 0) {
+                const { data: { publicUrl } } = supabase.storage
+                    .from('medical-waste')
+                    .getPublicUrl(`company-logo/${files[0].name}`);
+                
+                setLogoUrl(publicUrl);
+                setLogoPreview(publicUrl);
+                
+                // حفظ في localStorage للاستخدام offline
+                localStorage.setItem('customLogo', publicUrl);
+            } else {
+                // استخدام اللوجو الافتراضي
+                const customLogo = localStorage.getItem('customLogo');
+                if (customLogo && !customLogo.startsWith('http')) {
+                    // لو كان base64 قديم، استخدمه
+                    setLogoPreview(customLogo);
+                } else {
+                    setLogoPreview('/logo.png');
+                }
+            }
+        } catch (error) {
+            console.error('Error loading settings:', error);
+            setLogoPreview('/logo.png');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleLogoUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // التحقق من نوع الملف
+        if (!file.type.startsWith('image/')) {
+            alert('الرجاء اختيار صورة فقط');
+            return;
+        }
+
+        // التحقق من حجم الملف (أقل من 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            alert('حجم الصورة كبير جداً. الرجاء اختيار صورة أقل من 2 ميجابايت');
+            return;
+        }
+
+        setIsUploadingLogo(true);
+
+        try {
+            // حذف اللوجو القديم إن وجد
+            const { data: oldFiles } = await supabase.storage
+                .from('medical-waste')
+                .list('company-logo');
+
+            if (oldFiles && oldFiles.length > 0) {
+                const filesToRemove = oldFiles.map(f => `company-logo/${f.name}`);
+                await supabase.storage
+                    .from('medical-waste')
+                    .remove(filesToRemove);
+            }
+
+            // رفع اللوجو الجديد
+            const fileName = `logo-${Date.now()}.${file.name.split('.').pop()}`;
+            const { data, error } = await supabase.storage
+                .from('medical-waste')
+                .upload(`company-logo/${fileName}`, file, {
+                    cacheControl: '3600',
+                    upsert: true
+                });
+
+            if (error) throw error;
+
+            // الحصول على الرابط العام
+            const { data: { publicUrl } } = supabase.storage
+                .from('medical-waste')
+                .getPublicUrl(`company-logo/${fileName}`);
+
+            setLogoUrl(publicUrl);
+            setLogoPreview(publicUrl);
+            
+            // حفظ في localStorage للاستخدام offline
+            localStorage.setItem('customLogo', publicUrl);
+            
+            // إعادة تحميل الصفحة لتحديث اللوجو في كل مكان
+            alert('تم تحميل اللوجو بنجاح! ✅\nسيتم تحديث الصفحة...');
+            setTimeout(() => window.location.reload(), 1000);
+
+        } catch (error) {
+            console.error('Error uploading logo:', error);
+            alert('حدث خطأ أثناء رفع اللوجو: ' + error.message);
+        } finally {
+            setIsUploadingLogo(false);
+        }
+    };
+
+    const handleRemoveLogo = async () => {
+        if (!confirm('هل تريد حذف اللوجو المخصص والعودة للوجو الافتراضي؟')) {
+            return;
+        }
+
+        try {
+            setIsUploadingLogo(true);
+
+            // حذف من Supabase Storage
+            const { data: files } = await supabase.storage
+                .from('medical-waste')
+                .list('company-logo');
+
+            if (files && files.length > 0) {
+                const filesToRemove = files.map(f => `company-logo/${f.name}`);
+                await supabase.storage
+                    .from('medical-waste')
+                    .remove(filesToRemove);
+            }
+
+            // حذف من localStorage
+            localStorage.removeItem('customLogo');
+            
+            setLogoUrl(null);
+            setLogoPreview('/logo.png');
+            
+            alert('تم حذف اللوجو المخصص\nسيتم تحديث الصفحة...');
+            setTimeout(() => window.location.reload(), 1000);
+
+        } catch (error) {
+            console.error('Error removing logo:', error);
+            alert('حدث خطأ أثناء حذف اللوجو');
+        } finally {
+            setIsUploadingLogo(false);
+        }
+    };
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -67,6 +212,82 @@ const Settings = () => {
             <div>
                 <h1 className="text-2xl font-bold text-gray-900">الإعدادات</h1>
                 <p className="text-sm text-gray-500 mt-1">إدارة إعدادات النظام والتفضيلات</p>
+            </div>
+
+            {/* Logo Upload Section */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                        <Image className="w-6 h-6" />
+                    </div>
+                    <h2 className="text-lg font-bold text-gray-900">شعار الشركة</h2>
+                </div>
+
+                <div className="flex flex-col md:flex-row gap-6 items-start">
+                    {/* Logo Preview */}
+                    <div className="flex-shrink-0">
+                        <div className="w-32 h-32 border-2 border-gray-200 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden">
+                            {logoPreview ? (
+                                <img 
+                                    src={logoPreview} 
+                                    alt="Logo" 
+                                    className="w-full h-full object-contain"
+                                />
+                            ) : (
+                                <Image className="w-12 h-12 text-gray-400" />
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Upload Controls */}
+                    <div className="flex-1">
+                        <p className="text-sm text-gray-600 mb-4">
+                            قم برفع شعار شركتك ليظهر في جميع الصفحات والإيصالات والعقود والفواتير.
+                            <br />
+                            <span className="text-brand-600 font-medium">الشعار يُحفظ على السيرفر ويظهر لجميع المستخدمين على كل الأجهزة.</span>
+                        </p>
+                        
+                        <div className="flex flex-wrap gap-3">
+                            <label className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                                {isUploadingLogo ? (
+                                    <>
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                        <span>جاري التحميل...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Upload className="w-5 h-5" />
+                                        <span>رفع شعار جديد</span>
+                                    </>
+                                )}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleLogoUpload}
+                                    className="hidden"
+                                    disabled={isUploadingLogo}
+                                />
+                            </label>
+
+                            {logoUrl && (
+                                <button
+                                    onClick={handleRemoveLogo}
+                                    disabled={isUploadingLogo}
+                                    className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
+                                >
+                                    <X className="w-5 h-5" />
+                                    <span>حذف الشعار المخصص</span>
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-xs text-blue-800">
+                                💡 <strong>نصيحة:</strong> استخدم صورة بخلفية شفافة (PNG) بحجم 500×500 بكسل للحصول على أفضل نتيجة
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Company Info */}

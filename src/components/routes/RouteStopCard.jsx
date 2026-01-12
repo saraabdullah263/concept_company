@@ -121,16 +121,24 @@ const RouteStopCard = ({ stop, stopNumber, routeId, route, isRouteInProgress, cu
         }
     };
 
-    const handlePrintReceipt = () => {
+    const handlePrintReceipt = async () => {
         if (!stop.collection_details) {
             alert('لا توجد بيانات للطباعة');
             return;
         }
 
-        // إنشاء رقم إيصال مرتبط برقم العميل
-        const hospitalIdShort = stop.hospital_id ? stop.hospital_id.slice(-3).toUpperCase() : '000';
-        const sequenceNumber = Date.now().toString().slice(-5);
-        const receiptNumber = `EC-${new Date().getFullYear()}-${hospitalIdShort}-${sequenceNumber}`;
+        // جلب رقم الإيصال من الـ database
+        const { data: stopData, error } = await supabase
+            .from('route_stops')
+            .select('receipt_number')
+            .eq('id', stop.id)
+            .single();
+
+        if (error) {
+            console.error('Error fetching receipt number:', error);
+        }
+
+        const receiptNumber = stopData?.receipt_number || `R${Date.now().toString().slice(-4)}`;
 
         // Prepare receipt data
         const receiptData = {
@@ -145,7 +153,7 @@ const RouteStopCard = ({ stop, stopNumber, routeId, route, isRouteInProgress, cu
         sessionStorage.setItem('printReceipt', JSON.stringify(receiptData));
 
         // Open print window
-        const printWindow = window.open('/concept_company/print-receipt', '_blank');
+        const printWindow = window.open('/print-receipt', '_blank');
         if (!printWindow) {
             alert('الرجاء السماح بفتح النوافذ المنبثقة للطباعة');
         }

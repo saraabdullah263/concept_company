@@ -11,9 +11,20 @@ const PrintReceipt = () => {
         const data = sessionStorage.getItem('printReceipt');
         if (data) {
             setReceiptData(JSON.parse(data));
+            
+            // حل محسّن للطباعة على الموبايل
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
             setTimeout(() => {
-                window.print();
-            }, 500);
+                try {
+                    window.print();
+                } catch (e) {
+                    console.error('Print error:', e);
+                    if (isMobile) {
+                        alert('حدث خطأ في الطباعة. يرجى المحاولة مرة أخرى أو استخدام زر الطباعة في الصفحة.');
+                    }
+                }
+            }, isMobile ? 1000 : 500);
         } else {
             alert('لا توجد بيانات للطباعة');
             window.close();

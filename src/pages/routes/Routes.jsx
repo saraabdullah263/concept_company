@@ -4,20 +4,34 @@ import { useAuth } from '../../context/AuthContext';
 import RouteList from '../../components/routes/RouteList';
 import RouteForm from '../../components/routes/RouteForm';
 import RepresentativeRouteList from '../../components/routes/RepresentativeRouteList';
-import { Plus, Search, Loader2, Calendar } from 'lucide-react';
+import { Plus, Search, Loader2, Calendar, X } from 'lucide-react';
 
 const RoutesPage = () => {
     const { userRole, user } = useAuth();
     const [routes, setRoutes] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+    const [filterDate, setFilterDate] = useState(() => {
+        // استرجاع التاريخ المحفوظ من localStorage
+        return localStorage.getItem('routes_filter_date') || '';
+    });
     const [statusFilter, setStatusFilter] = useState('all');
     const [typeFilter, setTypeFilter] = useState('all');
+    const [representativeFilter, setRepresentativeFilter] = useState('all');
     const [representativeId, setRepresentativeId] = useState(null);
+    const [representatives, setRepresentatives] = useState([]);
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingRoute, setEditingRoute] = useState(null);
+
+    // حفظ التاريخ في localStorage عند تغييره
+    useEffect(() => {
+        if (filterDate) {
+            localStorage.setItem('routes_filter_date', filterDate);
+        } else {
+            localStorage.removeItem('routes_filter_date');
+        }
+    }, [filterDate]);
 
     // Get representative ID if user is representative
     useEffect(() => {
@@ -36,6 +50,23 @@ const RoutesPage = () => {
         };
         getRepresentativeId();
     }, [userRole, user]);
+
+    // Fetch representatives list for filter (admin only)
+    useEffect(() => {
+        const fetchRepresentatives = async () => {
+            if (userRole !== 'representative') {
+                const { data } = await supabase
+                    .from('representatives')
+                    .select('id, user_id, users!user_id(full_name)')
+                    .order('users(full_name)');
+                
+                if (data) {
+                    setRepresentatives(data);
+                }
+            }
+        };
+        fetchRepresentatives();
+    }, [userRole]);
 
     const fetchRoutes = async () => {
         try {
@@ -65,6 +96,11 @@ const RoutesPage = () => {
                 query = query.eq('route_type', typeFilter);
             }
 
+            // Filter by representative (admin only)
+            if (representativeFilter !== 'all' && userRole !== 'representative') {
+                query = query.eq('representative_id', representativeFilter);
+            }
+
             const { data, error } = await query;
 
             if (error) throw error;
@@ -74,6 +110,7 @@ const RoutesPage = () => {
                 // Get unique representative IDs
                 const repIds = [...new Set(data.map(r => r.representative_id).filter(Boolean))];
                 const vehicleIds = [...new Set(data.map(r => r.vehicle_id).filter(Boolean))];
+                const incineratorIds = [...new Set(data.map(r => r.incinerator_id).filter(Boolean))];
 
                 // Fetch representatives
                 let repsMap = {};
@@ -101,11 +138,25 @@ const RoutesPage = () => {
                     }
                 }
 
+                // Fetch incinerators
+                let incineratorsMap = {};
+                if (incineratorIds.length > 0) {
+                    const { data: incinerators } = await supabase
+                        .from('incinerators')
+                        .select('id, name')
+                        .in('id', incineratorIds);
+                    
+                    if (incinerators) {
+                        incineratorsMap = Object.fromEntries(incinerators.map(i => [i.id, i]));
+                    }
+                }
+
                 // Merge data
                 const enrichedData = data.map(route => ({
                     ...route,
                     representatives: route.representative_id ? repsMap[route.representative_id] : null,
-                    vehicles: route.vehicle_id ? vehiclesMap[route.vehicle_id] : null
+                    vehicles: route.vehicle_id ? vehiclesMap[route.vehicle_id] : null,
+                    incinerators: route.incinerator_id ? incineratorsMap[route.incinerator_id] : null
                 }));
 
                 // Fetch stop counts and weights for each route
@@ -149,7 +200,7 @@ const RoutesPage = () => {
             return; // انتظر حتى يتم جلب representative_id
         }
         fetchRoutes();
-    }, [filterDate, statusFilter, typeFilter, userRole, representativeId]);
+    }, [filterDate, statusFilter, typeFilter, representativeFilter, userRole, representativeId]);
 
     const handleCreate = () => {
         setEditingRoute(null);
@@ -157,6 +208,12 @@ const RoutesPage = () => {
     };
 
     const handleEdit = async (route) => {
+        // منع تعديل الرحلات المكتملة
+        if (route.status === 'completed') {
+            alert('لا يمكن تعديل خط سير مكتمل');
+            return;
+        }
+
         try {
             // Fetch route stops
             const { data: stops, error } = await supabase
@@ -188,12 +245,12 @@ const RoutesPage = () => {
             setIsModalOpen(true);
         } catch (error) {
             console.error('Error fetching route stops:', error);
-            alert('حدث خطأ أثناء تحميل بيانات الرحلة');
+            alert('حدث خطأ أثناء تحميل بيانات خط السير');
         }
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm('هل أنت متأكد من حذف هذه الرحلة؟')) {
+        if (window.confirm('هل أنت متأكد من حذف خط السير هذا؟')) {
             try {
                 const { error } = await supabase.from('routes').delete().eq('id', id);
                 if (error) throw error;
@@ -309,10 +366,10 @@ const RoutesPage = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">
-                        {userRole === 'representative' ? 'رحلاتي' : 'إدارة خطوط السير'}
+                        {userRole === 'representative' ? 'خطوط السير' : 'إدارة خطوط السير'}
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">
-                        {userRole === 'representative' ? 'عرض وتحديث رحلاتك' : 'متابعة الرحلات والمندوبين'}
+                        {userRole === 'representative' ? 'عرض وتحديث خطوط السير الخاصة بك' : 'متابعة خطوط السير والمندوبين'}
                     </p>
                 </div>
 
@@ -322,21 +379,32 @@ const RoutesPage = () => {
                         onClick={handleCreate}
                     >
                         <Plus className="w-5 h-5" />
-                        <span>رحلة جديدة</span>
+                        <span>خط سير جديد</span>
                     </button>
                 )}
             </div>
 
             {/* Filters */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4">
-                <div className="relative flex-1 max-w-xs">
-                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
-                    <input
-                        type="date"
-                        className="w-full pr-10 pl-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
-                        value={filterDate}
-                        onChange={(e) => setFilterDate(e.target.value)}
-                    />
+                <div className="flex gap-2 flex-1 max-w-xs">
+                    <div className="relative flex-1">
+                        <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
+                        <input
+                            type="date"
+                            className="w-full pr-10 pl-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                            value={filterDate}
+                            onChange={(e) => setFilterDate(e.target.value)}
+                        />
+                    </div>
+                    {filterDate && (
+                        <button
+                            onClick={() => setFilterDate('')}
+                            className="px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border border-gray-300 flex items-center justify-center"
+                            title="مسح التاريخ"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
 
                 <select
@@ -360,6 +428,22 @@ const RoutesPage = () => {
                     <option value="collection">رحلات جمع</option>
                     <option value="maintenance">رحلات صيانة</option>
                 </select>
+
+                {/* Representative Filter - Admin Only */}
+                {userRole !== 'representative' && (
+                    <select
+                        value={representativeFilter}
+                        onChange={(e) => setRepresentativeFilter(e.target.value)}
+                        className="w-full md:w-48 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
+                    >
+                        <option value="all">جميع المندوبين</option>
+                        {representatives.map(rep => (
+                            <option key={rep.id} value={rep.id}>
+                                {rep.users?.full_name || 'غير محدد'}
+                            </option>
+                        ))}
+                    </select>
+                )}
             </div>
 
             {loading ? (

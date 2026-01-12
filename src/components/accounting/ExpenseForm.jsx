@@ -14,13 +14,15 @@ const ExpenseForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) =
                 description: initialData.description || '',
                 amount: initialData.amount || '',
                 category: initialData.category || '',
-                expense_date: initialData.expense_date || format(new Date(), 'yyyy-MM-dd')
+                expense_date: initialData.expense_date || format(new Date(), 'yyyy-MM-dd'),
+                status: initialData.status || 'active'
             } : {
                 expense_type: 'other',
                 description: '',
                 amount: '',
                 category: '',
-                expense_date: format(new Date(), 'yyyy-MM-dd')
+                expense_date: format(new Date(), 'yyyy-MM-dd'),
+                status: 'active'
             });
         }
     }, [isOpen, initialData, reset]);
@@ -89,6 +91,17 @@ const ExpenseForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) =
                                 className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
                             />
                         </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">الحالة</label>
+                        <select
+                            {...register('status')}
+                            className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
+                        >
+                            <option value="active">نشط</option>
+                            <option value="cancelled">ملغي</option>
+                        </select>
                     </div>
 
                     <div>

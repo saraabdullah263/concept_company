@@ -100,25 +100,101 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
         if (!file) return;
 
         try {
-            const fileExt = file.name.split('.').pop();
+            // التحقق من حجم الملف (أقل من 5MB)
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (file.size > maxSize) {
+                alert('حجم الصورة كبير جداً. يرجى اختيار صورة أصغر من 5 ميجابايت');
+                return;
+            }
+
+            // ضغط الصورة قبل الرفع
+            const compressedFile = await compressImage(file);
+            
+            const fileExt = file.name.split('.').pop().toLowerCase();
             const fileName = `${route.id}_incinerator_${Date.now()}.${fileExt}`;
             const filePath = `incinerator-receipts/${fileName}`;
 
-            const { error: uploadError } = await supabase.storage
-                .from('waste-management')
-                .upload(filePath, file);
+            console.log('Uploading photo:', filePath);
 
-            if (uploadError) throw uploadError;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('medical-waste')
+                .upload(filePath, compressedFile, {
+                    cacheControl: '3600',
+                    upsert: false,
+                    contentType: file.type
+                });
+
+            if (uploadError) {
+                console.error('Upload error:', uploadError);
+                throw uploadError;
+            }
+
+            console.log('Upload successful:', uploadData);
 
             const { data: { publicUrl } } = supabase.storage
-                .from('waste-management')
+                .from('medical-waste')
                 .getPublicUrl(filePath);
 
+            console.log('Public URL:', publicUrl);
             updateDelivery('photo_proof', publicUrl);
+            alert('تم رفع الصورة بنجاح ✅');
         } catch (error) {
             console.error('Error uploading photo:', error);
-            alert('فشل رفع الصورة');
+            alert(`فشل رفع الصورة: ${error.message || 'خطأ غير معروف'}`);
         }
+    };
+
+    // دالة ضغط الصورة
+    const compressImage = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    // تصغير الصورة إذا كانت كبيرة
+                    const maxDimension = 1920;
+                    if (width > maxDimension || height > maxDimension) {
+                        if (width > height) {
+                            height = (height / width) * maxDimension;
+                            width = maxDimension;
+                        } else {
+                            width = (width / height) * maxDimension;
+                            height = maxDimension;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob(
+                        (blob) => {
+                            if (blob) {
+                                const compressedFile = new File([blob], file.name, {
+                                    type: 'image/jpeg',
+                                    lastModified: Date.now(),
+                                });
+                                resolve(compressedFile);
+                            } else {
+                                reject(new Error('فشل ضغط الصورة'));
+                            }
+                        },
+                        'image/jpeg',
+                        0.8 // جودة 80%
+                    );
+                };
+                img.onerror = () => reject(new Error('فشل تحميل الصورة'));
+            };
+            reader.onerror = () => reject(new Error('فشل قراءة الملف'));
+        });
     };
 
     const saveSignature = () => {
@@ -407,10 +483,10 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
                                     min="0"
                                     max={totalCollected.bags}
                                     value={delivery.bags_count}
-                                    onChange={(e) => updateDelivery('bags_count', e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 text-center text-lg font-bold"
-                                    required
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-center text-lg font-bold text-gray-600 cursor-not-allowed"
+                                    readOnly
                                 />
+                                <p className="text-xs text-gray-500 mt-1 text-center">محسوب تلقائياً من الرحلات</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -422,10 +498,10 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
                                     min="0"
                                     max={totalCollected.weight}
                                     value={delivery.weight_delivered}
-                                    onChange={(e) => updateDelivery('weight_delivered', e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 text-center text-lg font-bold"
-                                    required
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-center text-lg font-bold text-gray-600 cursor-not-allowed"
+                                    readOnly
                                 />
+                                <p className="text-xs text-gray-500 mt-1 text-center">محسوب تلقائياً من الرحلات</p>
                             </div>
                         </div>
                     </div>
@@ -444,9 +520,10 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
                                         min="0"
                                         max={totalCollected.safetyBoxCount}
                                         value={delivery.safety_box_count}
-                                        onChange={(e) => updateDelivery('safety_box_count', e.target.value)}
-                                        className="w-full px-4 py-3 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 text-center text-lg font-bold bg-white"
+                                        className="w-full px-4 py-3 border border-amber-200 rounded-lg bg-white text-center text-lg font-bold text-gray-600 cursor-not-allowed"
+                                        readOnly
                                     />
+                                    <p className="text-xs text-amber-600 mt-1 text-center">محسوب تلقائياً</p>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-amber-700 mb-2">
@@ -458,9 +535,10 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
                                         min="0"
                                         max={totalCollected.safetyBoxWeight}
                                         value={delivery.safety_box_weight}
-                                        onChange={(e) => updateDelivery('safety_box_weight', e.target.value)}
-                                        className="w-full px-4 py-3 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 text-center text-lg font-bold bg-white"
+                                        className="w-full px-4 py-3 border border-amber-200 rounded-lg bg-white text-center text-lg font-bold text-gray-600 cursor-not-allowed"
+                                        readOnly
                                     />
+                                    <p className="text-xs text-amber-600 mt-1 text-center">محسوب تلقائياً</p>
                                 </div>
                             </div>
                         </div>
@@ -490,12 +568,20 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
                             <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-brand-500 hover:bg-gray-50">
                                 <Camera className="w-8 h-8 text-gray-400 mb-2" />
                                 <span className="text-sm text-gray-600">اضغط لرفع صورة</span>
+                                <span className="text-xs text-gray-400 mt-1">الحد الأقصى: 5 ميجابايت</span>
                                 <input
                                     type="file"
-                                    accept="image/*"
+                                    accept="image/*,image/heic,image/heif"
                                     capture="environment"
                                     className="hidden"
-                                    onChange={(e) => handlePhotoUpload(e.target.files[0])}
+                                    onChange={(e) => {
+                                        const file = e.target.files[0];
+                                        if (file) {
+                                            handlePhotoUpload(file);
+                                        }
+                                        // Reset input
+                                        e.target.value = '';
+                                    }}
                                 />
                             </label>
                         )}

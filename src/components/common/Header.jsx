@@ -1,6 +1,6 @@
 import { Bell, Menu, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { notificationService } from '../../services/notificationService';
 
 // Audio Context للصوت
@@ -116,9 +116,10 @@ const Header = ({ toggleSidebar }) => {
                     
                     // إظهار إشعار المتصفح
                     if (Notification.permission === 'granted') {
+                        const customLogo = localStorage.getItem('customLogo') || '/logo.png';
                         new Notification(newNotification.title, {
                             body: newNotification.message,
-                            icon: '/logo.png'
+                            icon: customLogo
                         });
                     }
                 }

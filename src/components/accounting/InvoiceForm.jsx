@@ -27,7 +27,7 @@ const InvoiceForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) =
                 invoice_date: format(new Date(), 'yyyy-MM-dd'),
                 due_date: format(new Date(new Date().setDate(new Date().getDate() + 30)), 'yyyy-MM-dd'),
                 total_amount: '',
-                status: 'draft',
+                status: 'paid',
                 notes: ''
             });
         }
@@ -37,7 +37,7 @@ const InvoiceForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) =
     const calculateTotal = async () => {
         const hospitalId = watch('hospital_id');
         if (!hospitalId) {
-            alert('برجاء اختيار المستشفى أولاً');
+            alert('برجاء اختيار العميل أولاً');
             return;
         }
 
@@ -52,7 +52,7 @@ const InvoiceForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) =
                 .single();
 
             if (contractError || !contract) {
-                alert('لا يوجد عقد نشط لهذا المستشفى');
+                alert('لا يوجد عقد نشط لهذا العميل');
                 return;
             }
 
@@ -105,7 +105,7 @@ const InvoiceForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) =
             const totalAmount = totalWeight * parseFloat(contract.price_per_kg);
 
             if (totalWeight === 0) {
-                alert('لا توجد رحلات غير مفوترة لهذا المستشفى');
+                alert('لا توجد رحلات غير مفوترة لهذا العميل');
                 return;
             }
 
@@ -153,9 +153,7 @@ const InvoiceForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) =
                                 {...register('status')}
                                 className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white"
                             >
-                                <option value="draft">مسودة</option>
-                                <option value="sent">مرسلة</option>
-                                <option value="paid">تم الدفع</option>
+                                <option value="paid">مدفوعة</option>
                                 <option value="overdue">متأخرة</option>
                                 <option value="cancelled">ملغاة</option>
                             </select>
@@ -163,15 +161,15 @@ const InvoiceForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) =
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">المستشفى (العميل)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">العميل</label>
                         <select
-                            {...register('hospital_id', { required: 'المستشفى مطلوب' })}
+                            {...register('hospital_id', { required: 'العميل مطلوب' })}
                             className={clsx(
                                 "block w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white",
                                 errors.hospital_id ? "border-red-300 bg-red-50" : "border-gray-200"
                             )}
                         >
-                            <option value="">اختر المستشفى...</option>
+                            <option value="">اختر العميل...</option>
                             {hospitals.map(h => (
                                 <option key={h.id} value={h.id}>{h.name}</option>
                             ))}

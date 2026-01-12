@@ -7,15 +7,19 @@ import { format } from 'date-fns';
 import { generateNewContractPDF } from '../../services/pdfGenerator';
 
 const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) => {
-    const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
+    const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm();
     const [hospitals, setHospitals] = useState([]);
     const [selectedHospital, setSelectedHospital] = useState(null);
     const [isPrinting, setIsPrinting] = useState(false);
     const [customClauses, setCustomClauses] = useState([]);
     const [newClauseTitle, setNewClauseTitle] = useState('');
     const [newClauseContent, setNewClauseContent] = useState('');
+    const [hospitalSearch, setHospitalSearch] = useState('');
+    const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
 
     const watchHospitalId = watch('hospital_id');
+    const watchStartDate = watch('start_date');
+    const watchEndDate = watch('end_date');
 
     useEffect(() => {
         if (isOpen) {
@@ -25,12 +29,33 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                     .select('*')
                     .eq('is_active', true);
                 setHospitals(data || []);
+                
+                // تحديد العميل المختار إذا كان في وضع التعديل
+                if (initialData?.hospital_id && data) {
+                    const hospital = data.find(h => h.id === initialData.hospital_id);
+                    setSelectedHospital(hospital || null);
+                    setHospitalSearch(hospital?.name || '');
+                }
             };
 
             fetchHospitals();
 
+            // Reset البنود المخصصة أولاً
+            if (initialData?.custom_clauses) {
+                try {
+                    const clauses = typeof initialData.custom_clauses === 'string' 
+                        ? JSON.parse(initialData.custom_clauses) 
+                        : initialData.custom_clauses;
+                    setCustomClauses(Array.isArray(clauses) ? clauses : []);
+                } catch {
+                    setCustomClauses([]);
+                }
+            } else {
+                setCustomClauses([]);
+            }
+
+            // Reset النموذج
             reset(initialData || {
-                contract_number: `CON-${Date.now().toString().slice(-6)}`,
                 hospital_id: '',
                 start_date: format(new Date(), 'yyyy-MM-dd'),
                 end_date: format(new Date(new Date().setFullYear(new Date().getFullYear() + 1)), 'yyyy-MM-dd'),
@@ -39,6 +64,8 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                 contract_duration: 'سنة واحدة',
                 status: 'active',
                 // حقول العميل الإضافية
+                license_number: '',
+                license_expiry_date: '',
                 client_activity: '',
                 commercial_register: '',
                 tax_number: '',
@@ -46,19 +73,17 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                 custom_clauses: []
             });
             
-            // تحميل البنود المخصصة إذا كانت موجودة
-            if (initialData?.custom_clauses) {
-                try {
-                    const clauses = typeof initialData.custom_clauses === 'string' 
-                        ? JSON.parse(initialData.custom_clauses) 
-                        : initialData.custom_clauses;
-                    setCustomClauses(clauses || []);
-                } catch {
-                    setCustomClauses([]);
-                }
-            } else {
-                setCustomClauses([]);
-            }
+            // Reset حقول البند الجديد
+            setNewClauseTitle('');
+            setNewClauseContent('');
+        } else {
+            // عند إغلاق النموذج، نظف كل شيء
+            setCustomClauses([]);
+            setSelectedHospital(null);
+            setNewClauseTitle('');
+            setNewClauseContent('');
+            setHospitalSearch('');
+            setShowHospitalDropdown(false);
         }
     }, [isOpen, initialData, reset]);
 
@@ -67,8 +92,62 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
         if (watchHospitalId && hospitals.length > 0) {
             const hospital = hospitals.find(h => h.id === watchHospitalId);
             setSelectedHospital(hospital);
+            if (hospital) {
+                setHospitalSearch(hospital.name);
+                // تعبئة حقول الرخصة تلقائياً
+                if (hospital.license_number) {
+                    setValue('license_number', hospital.license_number);
+                }
+                if (hospital.license_expiry_date) {
+                    setValue('license_expiry_date', hospital.license_expiry_date);
+                }
+            }
         }
-    }, [watchHospitalId, hospitals]);
+    }, [watchHospitalId, hospitals, setValue]);
+
+    // فلترة العملاء حسب البحث
+    const filteredHospitals = hospitals.filter(h => 
+        h.name.toLowerCase().includes(hospitalSearch.toLowerCase()) ||
+        (h.city && h.city.toLowerCase().includes(hospitalSearch.toLowerCase())) ||
+        (h.governorate && h.governorate.toLowerCase().includes(hospitalSearch.toLowerCase()))
+    );
+
+    // اختيار عميل من القائمة
+    const selectHospital = (hospital) => {
+        setValue('hospital_id', hospital.id);
+        setSelectedHospital(hospital);
+        setHospitalSearch(hospital.name);
+        setShowHospitalDropdown(false);
+    };
+
+    // إغلاق الـ dropdown عند الضغط خارجه
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (!e.target.closest('.hospital-search-container')) {
+                setShowHospitalDropdown(false);
+            }
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
+
+    // تحديث حالة العقد تلقائياً عند انتهاء التاريخ
+    useEffect(() => {
+        if (watchEndDate) {
+            const endDate = new Date(watchEndDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            endDate.setHours(0, 0, 0, 0);
+            
+            // لو تاريخ الانتهاء النهارده أو قبل كده، يبقى منتهي
+            if (endDate <= today) {
+                setValue('status', 'expired');
+            } else if (watch('status') === 'expired' && endDate > today) {
+                // لو الحالة منتهي والتاريخ بعد النهارده، يرجعها ساري
+                setValue('status', 'active');
+            }
+        }
+    }, [watchEndDate, setValue, watch]);
 
     // إضافة بند مخصص جديد
     const addCustomClause = () => {
@@ -145,50 +224,114 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                 </div>
 
                 <form onSubmit={handleSubmit((data) => onSubmit({ ...data, custom_clauses: customClauses }))} className="p-6 space-y-6">
-                    {/* رقم العقد وتاريخه */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">رقم العقد</label>
-                            <input
-                                type="text"
-                                {...register('contract_number', { required: 'رقم العقد مطلوب' })}
-                                className={clsx(
-                                    "block w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none",
-                                    errors.contract_number ? "border-red-300 bg-red-50" : "border-gray-200"
-                                )}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">تاريخ العقد</label>
-                            <input
-                                type="date"
-                                {...register('start_date', { required: 'مطلوب' })}
-                                className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
-                            />
-                        </div>
+                    {/* تاريخ العقد */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">تاريخ العقد</label>
+                        <input
+                            type="date"
+                            {...register('start_date', { required: 'مطلوب' })}
+                            className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                        />
                     </div>
 
-                    {/* اختيار العميل */}
-                    <div>
+                    {/* اختيار العميل مع البحث */}
+                    <div className="relative hospital-search-container">
                         <label className="block text-sm font-medium text-gray-700 mb-1">العميل</label>
-                        <select
-                            {...register('hospital_id', { required: 'العميل مطلوب' })}
-                            className={clsx(
-                                "block w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white",
-                                errors.hospital_id ? "border-red-300 bg-red-50" : "border-gray-200"
+                        <input type="hidden" {...register('hospital_id', { required: 'العميل مطلوب' })} />
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={hospitalSearch}
+                                onChange={(e) => {
+                                    setHospitalSearch(e.target.value);
+                                    setShowHospitalDropdown(true);
+                                    if (!e.target.value) {
+                                        setValue('hospital_id', '');
+                                        setSelectedHospital(null);
+                                    }
+                                }}
+                                onFocus={() => setShowHospitalDropdown(true)}
+                                placeholder="ابحث عن العميل..."
+                                className={clsx(
+                                    "block w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none",
+                                    errors.hospital_id ? "border-red-300 bg-red-50" : "border-gray-200"
+                                )}
+                            />
+                            {hospitalSearch && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setHospitalSearch('');
+                                        setValue('hospital_id', '');
+                                        setSelectedHospital(null);
+                                    }}
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
                             )}
-                        >
-                            <option value="">اختر العميل...</option>
-                            {hospitals.map(h => (
-                                <option key={h.id} value={h.id}>{h.name}</option>
-                            ))}
-                        </select>
+                        </div>
+                        
+                        {/* Dropdown القائمة */}
+                        {showHospitalDropdown && (
+                            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                {filteredHospitals.length > 0 ? (
+                                    filteredHospitals.map(h => (
+                                        <button
+                                            key={h.id}
+                                            type="button"
+                                            onClick={() => selectHospital(h)}
+                                            className={clsx(
+                                                "w-full px-3 py-2 text-right hover:bg-brand-50 transition-colors border-b border-gray-100 last:border-0",
+                                                selectedHospital?.id === h.id && "bg-brand-50"
+                                            )}
+                                        >
+                                            <div className="font-medium text-gray-900">{h.name}</div>
+                                            {(h.city || h.governorate) && (
+                                                <div className="text-xs text-gray-500">
+                                                    {h.city}{h.city && h.governorate && ' - '}{h.governorate}
+                                                </div>
+                                            )}
+                                        </button>
+                                    ))
+                                ) : (
+                                    <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                                        لا يوجد عملاء مطابقين
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {errors.hospital_id && <p className="mt-1 text-sm text-red-600">{errors.hospital_id.message}</p>}
                     </div>
 
                     {/* بيانات العميل الإضافية */}
                     <div className="bg-gray-50 p-4 rounded-lg space-y-4">
                         <h3 className="font-medium text-gray-900 border-b pb-2">بيانات العميل للعقد</h3>
                         
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">رقم الرخصة</label>
+                                <input
+                                    type="text"
+                                    {...register('license_number')}
+                                    placeholder={selectedHospital?.license_number || 'رقم رخصة مزاولة المهنة'}
+                                    className="block w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
+                                    readOnly
+                                />
+                                <p className="text-xs text-gray-500 mt-1">رخصة مزاولة النشاط الطبي (من بيانات العميل)</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">تاريخ انتهاء الرخصة</label>
+                                <input
+                                    type="date"
+                                    {...register('license_expiry_date')}
+                                    className="block w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
+                                    readOnly
+                                />
+                                <p className="text-xs text-gray-500 mt-1">تاريخ انتهاء صلاحية الرخصة (من بيانات العميل)</p>
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">نشاط العميل</label>
@@ -300,9 +443,20 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                                 <label className="block text-sm font-medium text-gray-700 mb-1">تاريخ الانتهاء</label>
                                 <input
                                     type="date"
-                                    {...register('end_date', { required: 'مطلوب' })}
-                                    className="block w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none"
+                                    {...register('end_date', { 
+                                        required: 'مطلوب',
+                                        validate: (value) => {
+                                            if (!watchStartDate) return true;
+                                            return new Date(value) >= new Date(watchStartDate) || 'تاريخ الانتهاء يجب أن يكون بعد تاريخ البداية';
+                                        }
+                                    })}
+                                    min={watchStartDate}
+                                    className={clsx(
+                                        "block w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none",
+                                        errors.end_date ? "border-red-300 bg-red-50" : "border-gray-200"
+                                    )}
                                 />
+                                {errors.end_date && <p className="mt-1 text-sm text-red-600">{errors.end_date.message}</p>}
                             </div>
                         </div>
 
@@ -314,8 +468,12 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                             >
                                 <option value="active">ساري</option>
                                 <option value="expired">منتهي</option>
+                                <option value="renewal">تجديد</option>
                                 <option value="terminated">ملغي (فسخ عقد)</option>
                             </select>
+                            <p className="text-xs text-gray-500 mt-1">
+                                اختر "تجديد" للعقود المنتهية التي تريد تجديدها
+                            </p>
                         </div>
                     </div>
 

@@ -68,10 +68,12 @@ const Vehicles = () => {
         setIsSubmitting(true);
         try {
             // Clean data - convert empty string to null for owner_representative_id
+            // وإزالة الحقول الزيادة اللي جاية من الـ join
+            const { representatives: _representatives, ...vehicleData } = data;
             const cleanData = {
-                ...data,
-                owner_representative_id: data.owner_representative_id || null,
-                license_renewal_date: data.license_renewal_date || null
+                ...vehicleData,
+                owner_representative_id: vehicleData.owner_representative_id || null,
+                license_renewal_date: vehicleData.license_renewal_date || null
             };
 
             if (editingVehicle) {
