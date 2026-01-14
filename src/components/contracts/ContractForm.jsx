@@ -94,6 +94,7 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
             setSelectedHospital(hospital);
             if (hospital) {
                 setHospitalSearch(hospital.name);
+<<<<<<< HEAD
                 // تعبئة حقول الرخصة تلقائياً
                 if (hospital.license_number) {
                     setValue('license_number', hospital.license_number);
@@ -101,6 +102,8 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
                 if (hospital.license_expiry_date) {
                     setValue('license_expiry_date', hospital.license_expiry_date);
                 }
+=======
+>>>>>>> 55779b2566a0432e3ab60284762a93aed8aefd7b
             }
         }
     }, [watchHospitalId, hospitals, setValue]);
@@ -148,6 +151,32 @@ const ContractForm = ({ isOpen, onClose, onSubmit, initialData, isSubmitting }) 
             }
         }
     }, [watchEndDate, setValue, watch]);
+
+    // فلترة العملاء حسب البحث
+    const filteredHospitals = hospitals.filter(h => 
+        h.name.toLowerCase().includes(hospitalSearch.toLowerCase()) ||
+        (h.city && h.city.toLowerCase().includes(hospitalSearch.toLowerCase())) ||
+        (h.governorate && h.governorate.toLowerCase().includes(hospitalSearch.toLowerCase()))
+    );
+
+    // اختيار عميل من القائمة
+    const selectHospital = (hospital) => {
+        setValue('hospital_id', hospital.id);
+        setSelectedHospital(hospital);
+        setHospitalSearch(hospital.name);
+        setShowHospitalDropdown(false);
+    };
+
+    // إغلاق الـ dropdown عند الضغط خارجه
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (!e.target.closest('.hospital-search-container')) {
+                setShowHospitalDropdown(false);
+            }
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
 
     // إضافة بند مخصص جديد
     const addCustomClause = () => {

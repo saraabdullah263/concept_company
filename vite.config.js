@@ -4,6 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+<<<<<<< HEAD
   plugins: [
     react(),
     VitePWA({
@@ -86,4 +87,8 @@ export default defineConfig({
     // تقليل حجم الـ chunks
     chunkSizeWarningLimit: 1000
   }
+=======
+  plugins: [react()],
+  base: process.env.DOCKER_BUILD ? '/' : '/concept_company/',
+>>>>>>> 55779b2566a0432e3ab60284762a93aed8aefd7b
 })
