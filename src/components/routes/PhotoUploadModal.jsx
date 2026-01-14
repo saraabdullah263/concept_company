@@ -176,7 +176,6 @@ const PhotoUploadModal = ({ isOpen, onClose, stopId, routeId, currentLocation, o
                         ref={fileInputRef}
                         type="file"
                         accept="image/*"
-                        capture="environment"
                         onChange={handleFileSelect}
                         className="hidden"
                     />

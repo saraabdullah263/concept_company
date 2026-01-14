@@ -186,6 +186,11 @@ const CollectionFormModal = ({ isOpen, onClose, stop, routeId, route, currentLoc
             
             // Show success message
             alert('تم حفظ البيانات بنجاح! يمكنك الآن طباعة الإيصال');
+            
+            // Reload data immediately after save
+            if (onSuccess) {
+                onSuccess();
+            }
 
         } catch (error) {
             console.error('Error:', error);
@@ -210,8 +215,7 @@ const CollectionFormModal = ({ isOpen, onClose, stop, routeId, route, currentLoc
 
         setTimeout(() => {
             setIsPrinting(false);
-            // Update parent component after printing
-            onSuccess();
+            // Close modal after printing
             onClose();
         }, 500);
     };

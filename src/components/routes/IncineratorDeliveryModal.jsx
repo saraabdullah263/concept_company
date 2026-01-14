@@ -572,7 +572,6 @@ const IncineratorDeliveryModal = ({ isOpen, onClose, route, onSuccess }) => {
                                 <input
                                     type="file"
                                     accept="image/*,image/heic,image/heif"
-                                    capture="environment"
                                     className="hidden"
                                     onChange={(e) => {
                                         const file = e.target.files[0];
